@@ -12,8 +12,8 @@
         @skip="handleOnboardingSkip"
       />
       
-      <!-- AI 챗봇 메인 화면 -->
-      <ChatbotMainScreen v-if="currentScreen === 'chatbot'" />
+      <!-- Job-pt 메인 화면 -->
+      <JobAnalysisMainScreen v-if="currentScreen === 'main'" />
     </div>
   </div>
 </template>
@@ -23,7 +23,7 @@ import { ref, onMounted } from 'vue'
 import { useAppStore } from './stores/app'
 import SplashScreen from './components/SplashScreen.vue'
 import OnboardingScreen from './components/OnboardingScreen.vue'
-import ChatbotMainScreen from './components/ChatbotMainScreen.vue'
+import JobAnalysisMainScreen from './components/JobAnalysisMainScreen.vue'
 
 const appStore = useAppStore()
 const currentScreen = ref('splash')
@@ -33,13 +33,13 @@ const handleOnboardingNext = () => {
   if (onboardingStep.value < 3) {
     onboardingStep.value++
   } else {
-    currentScreen.value = 'chatbot'
+    currentScreen.value = 'main'
     appStore.setOnboardingCompleted(true)
   }
 }
 
 const handleOnboardingSkip = () => {
-  currentScreen.value = 'chatbot'
+  currentScreen.value = 'main'
   appStore.setOnboardingCompleted(true)
 }
 
@@ -51,8 +51,8 @@ onMounted(() => {
   setTimeout(() => {
     console.log('Timeout triggered, checking onboarding status...')
     if (appStore.isOnboardingCompleted) {
-      console.log('Onboarding completed, going to chatbot')
-      currentScreen.value = 'chatbot'
+      console.log('Onboarding completed, going to main')
+      currentScreen.value = 'main'
     } else {
       console.log('Onboarding not completed, going to onboarding')
       currentScreen.value = 'onboarding'

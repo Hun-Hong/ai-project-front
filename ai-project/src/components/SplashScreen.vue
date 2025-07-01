@@ -1,17 +1,17 @@
 <template>
   <div class="splash-screen">
     <div class="splash-content">
-      <div class="splash-icon">🎯</div>
-      <h1 class="splash-title">커리어 어드바이저</h1>
-      <p class="splash-subtitle">AI Career Consultant</p>
+      <div class="splash-icon">📋</div>
+      <h1 class="splash-title">Job-pt</h1>
+      <p class="splash-subtitle">잡피티</p>
       <div class="splash-tagline">
-        <span class="highlight">당신의 커리어 성장을</span>
-        <span>전문적으로 도와드립니다</span>
+        <span class="highlight">채용 공고 분석과 요약을</span>
+        <span>AI가 도와드립니다</span>
       </div>
     </div>
     <div class="splash-loader">
       <div class="spinner"></div>
-      <p class="loading-text">커리어 데이터베이스 로딩 중...</p>
+      <p class="loading-text">채용 공고 분석 엔진 로딩 중...</p>
     </div>
   </div>
 </template>
@@ -24,7 +24,7 @@
 .splash-screen {
   width: 100%;
   height: 100vh;
-  background: linear-gradient(135deg, #20b2aa 0%, #17a2b8 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -98,7 +98,7 @@
 }
 
 .highlight {
-  color: #00d4aa;
+  color: #60a5fa;
   font-weight: 600;
 }
 
@@ -118,7 +118,7 @@
   width: 40px;
   height: 40px;
   border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top: 3px solid #00d4aa;
+  border-top: 3px solid #60a5fa;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
