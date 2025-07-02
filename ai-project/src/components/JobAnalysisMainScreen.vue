@@ -225,7 +225,7 @@ const sendToAPI = async (message) => {
     if (appStore.isApiConnected) {
       response = await appStore.sendChatMessage(message)
     } else {
-      await new Promise((r) => setTimeout(r, 1000))
+      await new Promise((r) => setTimeout(r, 15000))
       response = '현재 서버에 연결할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해주세요.'
     }
 
