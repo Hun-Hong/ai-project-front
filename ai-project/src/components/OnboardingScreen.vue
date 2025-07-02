@@ -99,16 +99,6 @@
         <p class="step-description">맞춤형 조언을 위해 마지막 질문이에요</p>
 
         <div class="form-section">
-          <div class="form-group">
-            <label class="form-label">이직/취업 목표 시기</label>
-            <div class="option-grid">
-              <button v-for="time in timelineOptions" :key="time.value" class="option-btn"
-                :class="{ active: userProfile.timeline === time.value }" @click="selectOption('timeline', time.value)">
-                <span class="option-icon">{{ time.icon }}</span>
-                <span class="option-text">{{ time.label }}</span>
-              </button>
-            </div>
-          </div>
 
           <div class="form-group">
             <label class="form-label">중요하게 생각하는 요소 (2개까지 선택)</label>
@@ -182,7 +172,6 @@ const userProfile = reactive({
   companySize: '',
   workType: '',
   techStack: [],
-  timeline: '',
   priorities: [],
   mainInterest: ''
 })
@@ -229,12 +218,6 @@ const workTypeOptions = [
   { value: 'any', label: '상관없음', icon: '🤷' }
 ]
 
-const timelineOptions = [
-  { value: 'immediate', label: '즉시', icon: '⚡' },
-  { value: '3months', label: '3개월 내', icon: '📅' },
-  { value: '6months', label: '6개월 내', icon: '📆' },
-  { value: '1year', label: '1년 내', icon: '🗓️' }
-]
 
 const priorityOptions = [
   { value: 'salary', label: '연봉', icon: '💰' },
@@ -339,7 +322,7 @@ const isStepValid = () => {
     case 2:
       return userProfile.companySize && userProfile.workType
     case 3:
-      return userProfile.timeline && userProfile.priorities.length > 0 && userProfile.mainInterest
+      return userProfile.priorities.length > 0 && userProfile.mainInterest
     default:
       return false
   }
@@ -361,7 +344,6 @@ const handleNext = async () => {
         companySize: userProfile.companySize,
         workType: userProfile.workType,
         techStack: [...userProfile.techStack],
-        timeline: userProfile.timeline,
         priorities: [...userProfile.priorities],
         mainInterest: userProfile.mainInterest
       }

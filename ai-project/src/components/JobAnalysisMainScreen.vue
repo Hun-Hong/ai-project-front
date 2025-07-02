@@ -130,10 +130,12 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, computed } from 'vue'
+import { ref, nextTick, onMounted, computed, watch } from 'vue'
 import { useAppStore } from '../stores/app'
 
 const appStore = useAppStore()
+
+
 
 // 반응형 데이터
 const newMessage = ref('')
@@ -162,6 +164,19 @@ const defaultQuestions = ref([
 ])
 
 // Computed 속성들
+watch(
+  () => messages.value.some(m => m.isTyping),
+  (isTyping) => {
+    if (isTyping) {
+      const interval = setInterval(() => {
+        scrollToBottom()
+        const stillTyping = messages.value.some(m => m.isTyping)
+        if (!stillTyping) clearInterval(interval)
+      }, 100)
+    }
+  }
+)
+
 const hasCustomQuestions = computed(() => {
   return appStore.customQuestions && appStore.customQuestions.length > 0
 })
@@ -225,7 +240,7 @@ const sendToAPI = async (message) => {
     if (appStore.isApiConnected) {
       response = await appStore.sendChatMessage(message)
     } else {
-      await new Promise((r) => setTimeout(r, 15000))
+      await new Promise((r) => setTimeout(r, 20000))
       response = '현재 서버에 연결할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해주세요.'
     }
 
@@ -340,10 +355,31 @@ const handleInput = (event) => {
   textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px'
 }
 
-const scrollToBottom = () => {
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+const autoScrollEnabled = ref(true)
+
+const scrollToBottom = async () => {
+  const container = messagesContainer.value
+  if (!container || !autoScrollEnabled.value) return
+
+  await nextTick()
+
+  const maxAttempts = 10
+  let attempts = 0
+
+  const tryScroll = () => {
+    const indicator = container.querySelector('.loading-indicator')
+    if (indicator) {
+      indicator.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else if (attempts < maxAttempts) {
+      attempts++
+      setTimeout(tryScroll, 50)
+    } else {
+      // fallback: 그냥 아래로 스크롤
+      container.scrollTop = container.scrollHeight
+    }
   }
+
+  tryScroll()
 }
 
 const formatTime = (timestamp) => {
@@ -393,6 +429,8 @@ const resetToOnboarding = async () => {
   }
 }
 
+
+
 // 채팅 히스토리 로드
 const loadChatHistory = async () => {
   try {
@@ -437,6 +475,18 @@ onMounted(async () => {
   if (messageInput.value) {
     messageInput.value.focus()
   }
+
+  const container = messagesContainer.value
+  if (!container) return
+
+  container.addEventListener('scroll', () => {
+    const scrollPos = Math.floor(container.scrollTop + container.clientHeight)
+    const scrollHeight = container.scrollHeight
+
+    const nearBottom = scrollHeight - scrollPos < 20
+
+    autoScrollEnabled.value = nearBottom
+  })
 
   // 1. 채팅 히스토리 복원
   await loadChatHistory()

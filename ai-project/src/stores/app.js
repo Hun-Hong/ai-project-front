@@ -161,15 +161,15 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
 - 경력 수준: ${getExperienceLabel(profile.experience)}  
 - 희망 직무: ${getPositionLabel(profile.position)}
 - 관심 기술: ${profile.techStack?.join(', ') || '미설정'}
-- 선호 회사규모: ${getCompanySizeLabel(profile.companySize)}
+- 관심 회사규모: ${getCompanySizeLabel(profile.companySize)}
 - 근무형태: ${getWorkTypeLabel(profile.workType)}
 - 중요 요소: ${profile.priorities?.map(p => getPriorityLabel(p)).join(', ') || '미설정'}
-- 목표시기: ${getTimelineLabel(profile.timeline)}
 - 관심사: ${getInterestLabel(profile.mainInterest)}
 
 이 프로필을 바탕으로 사용자에게 맞춤형 채용공고 정보와 조언을 제공해주세요. 
 사용자의 관심사와 목표에 맞는 구체적이고 실용적인 정보를 우선적으로 제공하고,
 현재 상태와 경력 수준에 적합한 수준의 조언을 해주세요.
+단, 희망 직무 위주로 고려 해주세요.
     `.trim()
     
     return profileText
@@ -326,16 +326,6 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     return labels[priority] || priority
   }
 
-  const getTimelineLabel = (timeline) => {
-    const labels = {
-      immediate: '즉시',
-      '3months': '3개월 내',
-      '6months': '6개월 내', 
-      '1year': '1년 내'
-    }
-    return labels[timeline] || timeline
-  }
-
   const getInterestLabel = (interest) => {
     const labels = {
       market_trends: '시장 동향',
@@ -377,7 +367,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
         try {
           console.log('실제 API 호출 시도...')
           
-          const response = await fetch(`${apiBaseUrl.value}/chat`, {
+          const response = await fetch(`${apiBaseUrl.value}/rag`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
