@@ -9,7 +9,9 @@
         v-if="currentScreen === 'onboarding'"
         :step="onboardingStep"
         @next="handleOnboardingNext"
+        @prev="handleOnboardingPrev"
         @skip="handleOnboardingSkip"
+        @complete="handleOnboardingComplete"
       />
       
       <!-- Job-pt 메인 화면 -->
@@ -29,35 +31,77 @@ const appStore = useAppStore()
 const currentScreen = ref('splash')
 const onboardingStep = ref(1)
 
-const handleOnboardingNext = () => {
+const handleOnboardingNext = (profileData) => {
+  console.log('온보딩 다음 단계:', onboardingStep.value + 1, profileData)
   if (onboardingStep.value < 3) {
     onboardingStep.value++
   } else {
-    currentScreen.value = 'main'
+    // 3단계 완료 시 complete 이벤트로 처리
+    handleOnboardingComplete(profileData)
+  }
+}
+
+const handleOnboardingPrev = () => {
+  console.log('온보딩 이전 단계:', onboardingStep.value - 1)
+  if (onboardingStep.value > 1) {
+    onboardingStep.value--
+  }
+}
+
+const handleOnboardingComplete = async (profileData) => {
+  console.log('온보딩 완료:', profileData)
+  
+  try {
+    // 프로필 데이터 저장
+    await appStore.saveUserProfile(profileData)
+    
+    // 맞춤형 질문 생성
+    await appStore.generateCustomQuestions(profileData)
+    
+    // 온보딩 완료 상태 저장
     appStore.setOnboardingCompleted(true)
+    
+    // 메인 화면으로 이동
+    currentScreen.value = 'main'
+    
+    console.log('온보딩 완료 처리 성공')
+  } catch (error) {
+    console.error('온보딩 완료 처리 실패:', error)
+    // 에러가 발생해도 메인 화면으로 이동
+    appStore.setOnboardingCompleted(true)
+    currentScreen.value = 'main'
   }
 }
 
 const handleOnboardingSkip = () => {
-  currentScreen.value = 'main'
+  console.log('온보딩 건너뛰기')
   appStore.setOnboardingCompleted(true)
+  currentScreen.value = 'main'
 }
 
-onMounted(() => {
-  console.log('App mounted, current screen:', currentScreen.value)
-  console.log('Onboarding completed:', appStore.isOnboardingCompleted)
+onMounted(async () => {
+  console.log('App 마운트됨')
+  console.log('현재 화면:', currentScreen.value)
   
-  // 스플래시 화면을 2초 후 온보딩으로 전환
+  // 앱 초기화가 완료될 때까지 대기
+  await appStore.waitForInitialization()
+  
+  console.log('앱 초기화 완료, 온보딩 완료 상태:', appStore.isOnboardingCompleted)
+  
+  // 스플래시 화면을 2초 후 다음 단계로 전환
   setTimeout(() => {
-    console.log('Timeout triggered, checking onboarding status...')
+    console.log('스플래시 타임아웃 발생')
+    
     if (appStore.isOnboardingCompleted) {
-      console.log('Onboarding completed, going to main')
+      console.log('온보딩 이미 완료됨 -> 메인 화면으로')
       currentScreen.value = 'main'
     } else {
-      console.log('Onboarding not completed, going to onboarding')
+      console.log('온보딩 미완료 -> 온보딩 화면으로')
       currentScreen.value = 'onboarding'
+      onboardingStep.value = 1 // 1단계부터 시작
     }
-    console.log('New screen:', currentScreen.value)
+    
+    console.log('변경된 화면:', currentScreen.value)
   }, 2000)
 })
 </script>

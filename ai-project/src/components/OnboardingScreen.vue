@@ -22,7 +22,7 @@
                 :key="status.value"
                 class="option-btn"
                 :class="{ active: userProfile.status === status.value }"
-                @click="userProfile.status = status.value"
+                @click="selectOption('status', status.value)"
               >
                 <span class="option-icon">{{ status.icon }}</span>
                 <span class="option-text">{{ status.label }}</span>
@@ -38,7 +38,7 @@
                 :key="exp.value"
                 class="option-btn"
                 :class="{ active: userProfile.experience === exp.value }"
-                @click="userProfile.experience = exp.value"
+                @click="selectOption('experience', exp.value)"
               >
                 <span class="option-icon">{{ exp.icon }}</span>
                 <span class="option-text">{{ exp.label }}</span>
@@ -54,7 +54,7 @@
                 :key="pos.value"
                 class="option-btn"
                 :class="{ active: userProfile.position === pos.value }"
-                @click="userProfile.position = pos.value"
+                @click="selectOption('position', pos.value)"
               >
                 <span class="option-icon">{{ pos.icon }}</span>
                 <span class="option-text">{{ pos.label }}</span>
@@ -79,7 +79,7 @@
                 :key="size.value"
                 class="option-btn"
                 :class="{ active: userProfile.companySize === size.value }"
-                @click="userProfile.companySize = size.value"
+                @click="selectOption('companySize', size.value)"
               >
                 <span class="option-icon">{{ size.icon }}</span>
                 <span class="option-text">{{ size.label }}</span>
@@ -95,7 +95,7 @@
                 :key="work.value"
                 class="option-btn"
                 :class="{ active: userProfile.workType === work.value }"
-                @click="userProfile.workType = work.value"
+                @click="selectOption('workType', work.value)"
               >
                 <span class="option-icon">{{ work.icon }}</span>
                 <span class="option-text">{{ work.label }}</span>
@@ -103,11 +103,11 @@
             </div>
           </div>
 
-          <div class="form-group" v-if="getTechStackOptions().length > 0">
+          <div class="form-group" v-if="currentTechStackOptions.length > 0">
             <label class="form-label">관심 기술 스택 (중복 선택 가능)</label>
             <div class="option-grid tech-grid">
               <button 
-                v-for="tech in getTechStackOptions()" 
+                v-for="tech in currentTechStackOptions" 
                 :key="tech.value"
                 class="option-btn tech-btn"
                 :class="{ active: userProfile.techStack.includes(tech.value) }"
@@ -135,7 +135,7 @@
                 :key="time.value"
                 class="option-btn"
                 :class="{ active: userProfile.timeline === time.value }"
-                @click="userProfile.timeline = time.value"
+                @click="selectOption('timeline', time.value)"
               >
                 <span class="option-icon">{{ time.icon }}</span>
                 <span class="option-text">{{ time.label }}</span>
@@ -168,7 +168,7 @@
                 :key="interest.value"
                 class="option-btn"
                 :class="{ active: userProfile.mainInterest === interest.value }"
-                @click="userProfile.mainInterest = interest.value"
+                @click="selectOption('mainInterest', interest.value)"
               >
                 <span class="option-icon">{{ interest.icon }}</span>
                 <span class="option-text">{{ interest.label }}</span>
@@ -207,7 +207,7 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, computed } from 'vue'
 
 const props = defineProps({
   step: {
@@ -342,9 +342,15 @@ const techStackByPosition = {
   ]
 }
 
-// 메서드들
-const getTechStackOptions = () => {
+// Computed 속성들
+const currentTechStackOptions = computed(() => {
   return techStackByPosition[userProfile.position] || []
+})
+
+// 메서드들
+const selectOption = (field, value) => {
+  userProfile[field] = value
+  console.log(`${field} 선택됨:`, value)
 }
 
 const toggleTechStack = (tech) => {
@@ -356,6 +362,7 @@ const toggleTechStack = (tech) => {
   } else {
     userProfile.techStack.splice(index, 1)
   }
+  console.log('기술스택 업데이트:', userProfile.techStack)
 }
 
 const togglePriority = (priority) => {
@@ -367,6 +374,7 @@ const togglePriority = (priority) => {
   } else {
     userProfile.priorities.splice(index, 1)
   }
+  console.log('우선순위 업데이트:', userProfile.priorities)
 }
 
 const isStepValid = () => {
@@ -383,18 +391,36 @@ const isStepValid = () => {
 }
 
 const handleNext = () => {
+  console.log('다음 버튼 클릭, 현재 단계:', props.step)
+  console.log('현재 프로필 데이터:', userProfile)
+  
   if (props.step === 3) {
-    emit('complete', userProfile)
+    // 3단계 완료 시 complete 이벤트 발생 - 순수한 객체로 변환
+    const profileData = {
+      status: userProfile.status,
+      experience: userProfile.experience,
+      position: userProfile.position,
+      companySize: userProfile.companySize,
+      workType: userProfile.workType,
+      techStack: [...userProfile.techStack], // 배열 복사
+      timeline: userProfile.timeline,
+      priorities: [...userProfile.priorities], // 배열 복사
+      mainInterest: userProfile.mainInterest
+    }
+    emit('complete', profileData)
   } else {
-    emit('next', userProfile)
+    // 다음 단계로 이동
+    emit('next', { ...userProfile })
   }
 }
 
 const handlePrev = () => {
+  console.log('이전 버튼 클릭')
   emit('prev')
 }
 
 const handleSkip = () => {
+  console.log('건너뛰기 버튼 클릭')
   emit('skip')
 }
 </script>
@@ -411,7 +437,6 @@ const handleSkip = () => {
   overflow-y: auto;
 }
 
-/* 진행 표시 */
 .progress-bar {
   width: 100%;
   height: 4px;
@@ -434,7 +459,6 @@ const handleSkip = () => {
   margin-bottom: 30px;
 }
 
-/* 메인 콘텐츠 */
 .onboarding-content {
   flex: 1;
   max-width: 600px;
@@ -467,7 +491,6 @@ const handleSkip = () => {
   text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
 }
 
-/* 폼 섹션 */
 .form-section {
   text-align: left;
 }
@@ -511,6 +534,7 @@ const handleSkip = () => {
   gap: 8px;
   text-align: center;
   backdrop-filter: blur(10px);
+  color: white;
 }
 
 .option-btn:hover {
@@ -545,7 +569,6 @@ const handleSkip = () => {
   line-height: 1.2;
 }
 
-/* 액션 버튼 */
 .onboarding-actions {
   display: flex;
   flex-direction: column;
@@ -603,7 +626,6 @@ const handleSkip = () => {
   color: white;
 }
 
-/* 애니메이션 */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -615,7 +637,6 @@ const handleSkip = () => {
   }
 }
 
-/* 반응형 디자인 */
 @media (max-width: 768px) {
   .onboarding-screen {
     padding: 15px;
@@ -649,25 +670,6 @@ const handleSkip = () => {
   
   .option-text {
     font-size: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .step-title {
-    font-size: 18px;
-  }
-  
-  .option-btn {
-    padding: 10px 8px;
-  }
-  
-  .option-icon {
-    font-size: 18px;
-  }
-  
-  .btn {
-    padding: 12px 20px;
-    font-size: 15px;
   }
 }
 </style>

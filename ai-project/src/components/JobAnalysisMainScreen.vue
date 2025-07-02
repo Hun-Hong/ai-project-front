@@ -12,8 +12,19 @@
         </div>
         
         <div class="header-actions">
-          <button class="header-action-btn" @click="clearHistory" title="대화 기록 초기화">
+          <button 
+            class="header-action-btn" 
+            @click="clearHistory" 
+            title="대화 내용 지우기 (세션 유지)"
+          >
             <span>🗑️</span>
+          </button>
+          <button 
+            class="header-action-btn reset-btn" 
+            @click="resetToOnboarding" 
+            title="완전 초기화 (온보딩부터 다시 시작)"
+          >
+            <span>🔄</span>
           </button>
         </div>
       </div>
@@ -30,18 +41,36 @@
             <p>AI가 채용공고를 분석하고 궁금한 점을 답변해드립니다.</p>
           </div>
           
+          <!-- 세션 정보 표시 -->
+          <!-- <div class="session-info">
+            <span class="session-id">세션: {{ shortSessionId }}</span>
+          </div> -->
+          
           <!-- 예시 질문들 -->
           <div class="example-questions">
-            <h3>예시 질문:</h3>
+            <h3>{{ questionTitle }}</h3>
             <div class="question-list">
               <button 
-                v-for="example in exampleQuestions" 
-                :key="example"
+                v-for="(question, index) in displayQuestions" 
+                :key="`question-${index}`"
                 class="example-btn"
-                @click="sendExample(example)"
+                :class="{ 'custom-question': hasCustomQuestions }"
+                @click="sendExample(question)"
               >
-                {{ example }}
+                {{ question }}
               </button>
+            </div>
+            
+            <!-- 맞춤형 질문 안내 -->
+            <div v-if="hasCustomQuestions" class="custom-note">
+              <span class="note-icon">💡</span>
+              <span>온보딩 정보를 바탕으로 생성된 맞춤형 질문입니다</span>
+            </div>
+            
+            <!-- 로딩 중일 때 -->
+            <div v-if="isLoadingQuestions" class="loading-questions">
+              <div class="loading-spinner"></div>
+              <span>맞춤형 질문을 생성하고 있습니다...</span>
             </div>
           </div>
         </div>
@@ -63,7 +92,8 @@
                   <span class="message-sender">{{ message.isUser ? '사용자' : 'Job-pt' }}</span>
                   <span class="message-time">{{ formatTime(message.timestamp) }}</span>
                 </div>
-                <div class="message-text">{{ message.text }}</div>
+                <div class="message-text" v-html="formatMarkdown(message.text)"></div>
+
               </div>
             </div>
 
@@ -79,7 +109,7 @@
                     <span></span>
                     <span></span>
                   </div>
-                  <span class="loading-text">AI가 답변을 생성하고 있습니다...</span>
+                  <span class="loading-text">{{ currentLoadingText }}</span>
                 </div>
               </div>
             </div>
@@ -112,13 +142,18 @@
             <span v-else>➤</span>
           </button>
         </div>
+        
+        <!-- 연결 상태 표시 -->
+        <div v-if="!appStore.isApiConnected" class="connection-status">
+          ⚠️ 서버 연결이 불안정합니다. 기본 기능만 사용 가능합니다.
+        </div>
       </div>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, onMounted, computed } from 'vue'
 import { useAppStore } from '../stores/app'
 
 const appStore = useAppStore()
@@ -127,16 +162,51 @@ const appStore = useAppStore()
 const newMessage = ref('')
 const messages = ref([])
 const isLoading = ref(false)
+const isLoadingQuestions = ref(false)
 const messagesContainer = ref(null)
 const messageInput = ref(null)
 
-// 예시 질문들
-const exampleQuestions = ref([
-  'FASTAPI를 사용하는 최신 직무공고 알려주세요.',
-  '신입 개발자 채용공고 추천해주세요.',
-  '원격근무 가능한 직무를 찾고 있어요.',
-  '마케팅 직무의 최신 트렌드는 무엇인가요?'
+// 로딩 메시지들
+const loadingMessages = ref([
+  'AI가 답변을 생성하고 있습니다...',
+  '채용공고를 분석하고 있습니다...',
+  '최신 정보를 검색하고 있습니다...',
+  '맞춤형 조언을 준비하고 있습니다...'
 ])
+const currentLoadingIndex = ref(0)
+const currentLoadingText = ref(loadingMessages.value[0])
+
+// 기본 예시 질문들
+const defaultQuestions = ref([
+  'IT 분야 최신 채용 트렌드를 알려주세요',
+  '신입 개발자 채용공고 추천해주세요',
+  '원격근무 가능한 직무를 찾고 있어요',
+  '연봉 협상은 어떻게 하는 것이 좋을까요?'
+])
+
+// Computed 속성들
+const hasCustomQuestions = computed(() => {
+  return appStore.customQuestions && appStore.customQuestions.length > 0
+})
+
+const displayQuestions = computed(() => {
+  if (hasCustomQuestions.value) {
+    return appStore.customQuestions
+  }
+  return defaultQuestions.value
+})
+
+const questionTitle = computed(() => {
+  if (hasCustomQuestions.value) {
+    return '🎯 맞춤 추천 질문'
+  }
+  return '💬 예시 질문'
+})
+
+const shortSessionId = computed(() => {
+  const sessionId = appStore.user.sessionId
+  return sessionId.split('_').pop().substring(0, 6) + '...'
+})
 
 // 메서드들
 const sendMessage = async () => {
@@ -159,7 +229,7 @@ const sendMessage = async () => {
   await nextTick()
   scrollToBottom()
   
-  // API 호출 (IndexedDB 저장 포함)
+  // API 호출
   await sendToAPI(userMessage)
 }
 
@@ -171,9 +241,20 @@ const sendExample = (exampleText) => {
 const sendToAPI = async (message) => {
   isLoading.value = true
   
+  // 로딩 메시지 애니메이션 시작
+  startLoadingAnimation()
+  
   try {
-    // Store의 sendChatMessage 호출 (IndexedDB 저장 및 히스토리 전송 포함)
-    const response = await appStore.sendChatMessage(message)
+    let response
+    
+    if (appStore.isApiConnected) {
+      // Store의 sendChatMessage 호출
+      response = await appStore.sendChatMessage(message)
+    } else {
+      // 오프라인 모드일 때는 기본 응답
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      response = '현재 서버에 연결할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해주세요.'
+    }
     
     // AI 응답 메시지를 UI에 추가
     const aiMsg = {
@@ -194,7 +275,7 @@ const sendToAPI = async (message) => {
     // 에러 메시지 추가
     const errorMsg = {
       id: Date.now() + 1,
-      text: '죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      text: `죄송합니다. ${error.message || '일시적인 오류가 발생했습니다.'} 잠시 후 다시 시도해주세요.`,
       isUser: false,
       timestamp: new Date()
     }
@@ -205,6 +286,53 @@ const sendToAPI = async (message) => {
     scrollToBottom()
   } finally {
     isLoading.value = false
+    stopLoadingAnimation()
+  }
+}
+
+// 로딩 애니메이션 관리
+let loadingInterval = null
+
+const startLoadingAnimation = () => {
+  currentLoadingIndex.value = 0
+  currentLoadingText.value = loadingMessages.value[0]
+  
+  loadingInterval = setInterval(() => {
+    currentLoadingIndex.value = (currentLoadingIndex.value + 1) % loadingMessages.value.length
+    currentLoadingText.value = loadingMessages.value[currentLoadingIndex.value]
+  }, 2000)
+}
+
+const stopLoadingAnimation = () => {
+  if (loadingInterval) {
+    clearInterval(loadingInterval)
+    loadingInterval = null
+  }
+}
+
+// 맞춤형 질문 로드
+const loadCustomQuestions = async () => {
+  if (hasCustomQuestions.value) {
+    console.log('이미 맞춤형 질문이 있습니다:', appStore.customQuestions)
+    return
+  }
+
+  if (!appStore.user.profile) {
+    console.log('사용자 프로필이 없어서 기본 질문을 사용합니다')
+    return
+  }
+
+  try {
+    isLoadingQuestions.value = true
+    console.log('맞춤형 질문 생성 시도...')
+    
+    await appStore.generateCustomQuestions(appStore.user.profile)
+    
+    console.log('맞춤형 질문 로드 완료:', appStore.customQuestions)
+  } catch (error) {
+    console.error('맞춤형 질문 로드 실패:', error)
+  } finally {
+    isLoadingQuestions.value = false
   }
 }
 
@@ -236,22 +364,41 @@ const formatTime = (timestamp) => {
   }).format(new Date(timestamp))
 }
 
+// 대화 내용만 지우기 (세션 유지)
 const clearHistory = async () => {
-  if (confirm('모든 대화 기록을 삭제하시겠습니까?')) {
+  if (confirm('현재 세션의 대화 내용을 삭제하시겠습니까?\n\n세션은 유지되고 대화 내용만 삭제됩니다.')) {
     try {
-      // IndexedDB에서 현재 세션 삭제
-      await appStore.deleteChatSession(appStore.user.sessionId)
+      // IndexedDB에서 현재 세션의 메시지만 삭제
+      await appStore.clearCurrentChatHistory()
       
       // UI 메시지 초기화
       messages.value = []
       
-      // 새 세션 시작
-      appStore.startNewChatSession()
-      
-      console.log('대화 기록이 삭제되었습니다.')
+      console.log('대화 내용이 삭제되었습니다.')
     } catch (error) {
-      console.error('대화 기록 삭제 실패:', error)
-      alert('대화 기록 삭제에 실패했습니다.')
+      console.error('대화 내용 삭제 실패:', error)
+      alert('대화 내용 삭제에 실패했습니다.')
+    }
+  }
+}
+
+// 완전 초기화 - 온보딩부터 다시 시작
+const resetToOnboarding = async () => {
+  if (confirm('모든 데이터를 삭제하고 온보딩부터 다시 시작하시겠습니까?\n\n프로필, 맞춤형 질문, 모든 대화 내용이 삭제됩니다.')) {
+    try {
+      console.log('완전 초기화 시작...')
+      
+      // Store의 완전 초기화 호출
+      await appStore.resetAllData()
+      
+      console.log('완전 초기화 완료, 페이지 새로고침')
+      
+      // 페이지 새로고침으로 온보딩 화면으로 이동
+      window.location.reload()
+      
+    } catch (error) {
+      console.error('완전 초기화 실패:', error)
+      alert('초기화에 실패했습니다.')
     }
   }
 }
@@ -278,14 +425,38 @@ const loadChatHistory = async () => {
   }
 }
 
+const formatMarkdown = (text) => {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // **굵은글씨**
+    .replace(/\*(.*?)\*/g, '<em>$1</em>') // *기울임*
+    .replace(/`(.*?)`/g, '<code>$1</code>') // `코드`
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>') // ### 제목3
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>') // ## 제목2
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>') // # 제목1
+    .replace(/^- (.*$)/gim, '<li>$1</li>') // - 리스트
+    .replace(/\n/g, '<br>') // 줄바꿈
+}
+
+
 // 생명주기
 onMounted(async () => {
+  console.log('JobAnalysisMainScreen 마운트됨')
+  console.log('사용자 ID:', appStore.user.userId)
+  console.log('세션 ID:', appStore.user.sessionId)
+  
   if (messageInput.value) {
     messageInput.value.focus()
   }
   
-  // 앱 로드 시 채팅 히스토리 복원
+  // 1. 채팅 히스토리 복원
   await loadChatHistory()
+  
+  // 2. 맞춤형 질문 로드
+  await loadCustomQuestions()
+  
+  console.log('메인 화면 초기화 완료')
+  console.log('맞춤형 질문 상태:', hasCustomQuestions.value)
+  console.log('표시할 질문들:', displayQuestions.value)
 })
 </script>
 
@@ -293,7 +464,8 @@ onMounted(async () => {
 .job-analysis-main {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
+  height: auto;
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
 }
 
@@ -365,6 +537,11 @@ onMounted(async () => {
   border-color: #3b82f6;
 }
 
+.header-action-btn.reset-btn:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
 /* 메인 콘텐츠 */
 .main-content {
   flex: 1;
@@ -387,56 +564,77 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   text-align: center;
-  height: 100%;
+  min-height: calc(100vh - 200px);
+  max-height: calc(100vh - 200px);
   padding: 20px;
+  overflow-y: auto;
 }
 
 .welcome-avatar {
-  font-size: 60px;
+  font-size: 50px;
   margin-bottom: 15px;
   animation: bounce 2s ease-in-out infinite;
 }
 
 .welcome-message h2 {
   color: white;
-  font-size: 24px;
+  font-size: 22px;
   margin-bottom: 8px;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .welcome-message p {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 16px;
-  margin-bottom: 25px;
+  font-size: 15px;
+  margin-bottom: 15px;
   text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+}
+
+.session-info {
+  margin-bottom: 20px;
+}
+
+.session-id {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-family: monospace;
+  backdrop-filter: blur(10px);
 }
 
 /* 예시 질문 */
 .example-questions h3 {
   color: white;
   margin-bottom: 15px;
-  font-size: 18px;
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .question-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   max-width: 500px;
+  margin-bottom: 15px;
+  max-height: 250px;
+  overflow-y: auto;
 }
 
 .example-btn {
   background: rgba(255, 255, 255, 0.95);
   border: none;
   border-radius: 12px;
-  padding: 15px;
+  padding: 12px 15px;
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: left;
-  font-size: 14px;
+  font-size: 13px;
   color: #333;
+  line-height: 1.4;
 }
 
 .example-btn:hover {
@@ -445,9 +643,55 @@ onMounted(async () => {
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
+.example-btn.custom-question {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(96, 165, 250, 0.1));
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.example-btn.custom-question:hover {
+  background: linear-gradient(135deg, white, rgba(96, 165, 250, 0.1));
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.custom-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-style: italic;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.note-icon {
+  font-size: 14px;
+}
+
+.loading-questions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  padding: 15px;
+}
+
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
 /* 메시지 영역 */
 .messages-area {
-  height: 100%;
+  min-height: calc(100vh - 200px);
+  max-height: calc(100vh - 200px);
   display: flex;
   flex-direction: column;
 }
@@ -526,6 +770,33 @@ onMounted(async () => {
 .user-message .message-text {
   background: linear-gradient(45deg, #10b981, #059669);
   color: white;
+}
+
+/* 마크다운 스타일 */
+.message-text h1, .message-text h2, .message-text h3 {
+  margin: 10px 0 5px 0;
+  font-weight: 600;
+}
+
+.message-text code {
+  background: rgba(0,0,0,0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.message-text li {
+  margin-left: 20px;
+  list-style: disc;
+}
+
+.message-text strong {
+  font-weight: 600;
+}
+
+.message-text em {
+  font-style: italic;
 }
 
 /* 로딩 인디케이터 */
@@ -628,6 +899,18 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
+/* 연결 상태 */
+.connection-status {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  color: #856404;
+  font-size: 12px;
+  text-align: center;
+}
+
 /* 애니메이션 */
 @keyframes bounce {
   0%, 20%, 50%, 80%, 100% {
@@ -652,22 +935,35 @@ onMounted(async () => {
   }
 }
 
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* 스크롤바 */
-.messages-container::-webkit-scrollbar {
+.messages-container::-webkit-scrollbar,
+.question-list::-webkit-scrollbar,
+.welcome-section::-webkit-scrollbar {
   width: 6px;
 }
 
-.messages-container::-webkit-scrollbar-track {
+.messages-container::-webkit-scrollbar-track,
+.question-list::-webkit-scrollbar-track,
+.welcome-section::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
 }
 
-.messages-container::-webkit-scrollbar-thumb {
+.messages-container::-webkit-scrollbar-thumb,
+.question-list::-webkit-scrollbar-thumb,
+.welcome-section::-webkit-scrollbar-thumb {
   background: #ccc;
   border-radius: 3px;
 }
 
-.messages-container::-webkit-scrollbar-thumb:hover {
+.messages-container::-webkit-scrollbar-thumb:hover,
+.question-list::-webkit-scrollbar-thumb:hover,
+.welcome-section::-webkit-scrollbar-thumb:hover {
   background: #999;
 }
 
@@ -698,12 +994,13 @@ onMounted(async () => {
   }
   
   .question-list {
-    gap: 10px;
+    gap: 8px;
+    max-height: 200px;
   }
   
   .example-btn {
-    padding: 12px;
-    font-size: 13px;
+    padding: 10px 12px;
+    font-size: 12px;
   }
   
   .welcome-message h2 {
@@ -715,18 +1012,29 @@ onMounted(async () => {
   }
   
   .welcome-avatar {
-    font-size: 50px;
+    font-size: 45px;
     margin-bottom: 12px;
   }
   
   .message-content {
     max-width: 85%;
   }
+  
+  .welcome-section {
+    min-height: calc(100vh - 180px);
+    max-height: calc(100vh - 180px);
+    padding: 15px;
+  }
+  
+  .messages-area {
+    min-height: calc(100vh - 180px);
+    max-height: calc(100vh - 180px);
+  }
 }
 
 @media (max-width: 480px) {
   .welcome-avatar {
-    font-size: 45px;
+    font-size: 40px;
   }
   
   .brand-icon {
@@ -742,7 +1050,14 @@ onMounted(async () => {
   }
   
   .welcome-section {
-    padding: 15px;
+    padding: 12px;
+    min-height: calc(100vh - 160px);
+    max-height: calc(100vh - 160px);
+  }
+  
+  .messages-area {
+    min-height: calc(100vh - 160px);
+    max-height: calc(100vh - 160px);
   }
   
   .welcome-message h2 {
@@ -751,11 +1066,25 @@ onMounted(async () => {
   
   .welcome-message p {
     font-size: 13px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
   }
   
   .message-input {
     font-size: 16px; /* iOS에서 줌 방지 */
+  }
+  
+  .header-actions {
+    gap: 6px;
+  }
+  
+  .header-action-btn {
+    min-width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+  
+  .question-list {
+    max-height: 180px;
   }
 }
 </style>

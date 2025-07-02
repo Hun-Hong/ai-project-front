@@ -7,52 +7,110 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   
   // 앱 기본 상태
   const isOnboardingCompleted = ref(false)
+  const isInitialized = ref(false)
   
-  // 사용자 정보
+  // 사용자 정보 (고정 ID + 임시 세션)
   const user = ref({
-    id: 1,
+    userId: generateOrGetUserId(), // 브라우저별 고정 ID
     name: '사용자',
-    sessionId: generateSessionId(),
-    profile: null // 온보딩에서 수집한 프로필 정보
+    sessionId: generateSessionId(), // 임시 세션 ID
+    profile: null
   })
 
   // 채팅 관련 상태
-  const isApiConnected = ref(true)
-  const apiBaseUrl = 'https://job-pt.fly.dev'
-  const customQuestions = ref([]) // 맞춤형 예시 질문들
+  const isApiConnected = ref(false) // 기본값을 false로 설정
+  const apiBaseUrl = ref('https://job-pt.fly.dev')
+  const customQuestions = ref([])
 
   // ====== ACTIONS ======
 
-  // 온보딩 완료 상태 설정
+  // 온보딩 완료 상태 설정 (사용자별로 저장)
   const setOnboardingCompleted = (completed) => {
     isOnboardingCompleted.value = completed
-    localStorage.setItem('job_analyzer_onboarding_completed', completed.toString())
+    localStorage.setItem(`job_analyzer_onboarding_${user.value.userId}`, completed.toString())
+    console.log('온보딩 완료 상태 설정:', completed)
   }
 
-  // 사용자 프로필 저장
+  // 초기화 대기 함수
+  const waitForInitialization = async () => {
+    if (isInitialized.value) return
+    
+    return new Promise((resolve) => {
+      const checkInit = () => {
+        if (isInitialized.value) {
+          resolve()
+        } else {
+          setTimeout(checkInit, 100)
+        }
+      }
+      checkInit()
+    })
+  }
+
+  // 사용자 프로필 저장 (사용자 ID 기반)
   const saveUserProfile = async (profile) => {
     try {
+      console.log('사용자 프로필 저장 시작:', profile)
+      
       user.value.profile = profile
       
-      // IndexedDB에 프로필 저장
-      await dbService.saveUserProfile(user.value.sessionId, profile)
+      // IndexedDB에 사용자 ID로 프로필 저장
+      await dbService.saveUserProfile(user.value.userId, profile)
       
-      console.log('사용자 프로필 저장 완료:', profile)
+      console.log('사용자 프로필 저장 완료')
+      return profile
     } catch (error) {
       console.error('사용자 프로필 저장 실패:', error)
+      user.value.profile = profile
       throw error
     }
   }
 
-  // 맞춤형 예시 질문 생성
+  // 사용자 프로필 로드 (사용자 ID 기반)
+  const loadUserProfile = async () => {
+    try {
+      const profile = await dbService.getUserProfile(user.value.userId)
+      if (profile) {
+        user.value.profile = profile
+        console.log('사용자 프로필 로드 완료:', profile)
+      }
+      return profile
+    } catch (error) {
+      console.error('사용자 프로필 로드 실패:', error)
+      return null
+    }
+  }
+
+  // 맞춤형 예시 질문 생성 (사용자 ID 기반)
   const generateCustomQuestions = async (profile) => {
     try {
       console.log('맞춤형 질문 생성 시작...')
       
-      // 프로필 기반 시스템 프롬프트 생성
+      // API가 연결되어 있을 때만 AI 생성 시도
+      if (isApiConnected.value) {
+        await generateAIQuestions(profile)
+      } else {
+        setDefaultQuestions(profile)
+      }
+      
+      // IndexedDB에 사용자 ID로 저장
+      if (customQuestions.value.length > 0) {
+        await dbService.saveCustomQuestions(user.value.userId, customQuestions.value)
+      }
+      
+      console.log('맞춤형 질문 생성 완료:', customQuestions.value)
+    } catch (error) {
+      console.error('맞춤형 질문 생성 실패:', error)
+      setDefaultQuestions(profile)
+    }
+  }
+
+  // AI로 맞춤형 질문 생성
+  const generateAIQuestions = async (profile) => {
+    try {
       const systemPrompt = createSystemPrompt(profile)
       
-      const response = await fetch(`${apiBaseUrl}/chat`, {
+      const response = await fetch(`${apiBaseUrl.value}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,19 +142,12 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
       
       if (questions.length > 0) {
         customQuestions.value = questions
-        
-        // IndexedDB에 저장
-        await dbService.saveCustomQuestions(user.value.sessionId, questions)
-        
-        console.log('맞춤형 질문 생성 완료:', questions)
       } else {
-        // 생성 실패 시 기본 질문 사용
         setDefaultQuestions(profile)
       }
       
     } catch (error) {
-      console.error('맞춤형 질문 생성 실패:', error)
-      // 에러 시 기본 질문 사용
+      console.error('AI 질문 생성 실패:', error)
       setDefaultQuestions(profile)
     }
   }
@@ -145,13 +196,28 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
         .replace(/^[*]\s*/, '') // "* " 형태 제거
         .trim()
       
-      // 질문으로 보이는 문장만 추가 (물음표나 질문 키워드 포함)
+      // 질문으로 보이는 문장만 추가
       if (cleaned && (cleaned.includes('?') || cleaned.includes('어떤') || cleaned.includes('무엇') || cleaned.includes('어디'))) {
         questions.push(cleaned)
       }
     }
     
     return questions.slice(0, 5) // 최대 5개
+  }
+
+  // 맞춤형 질문 로드 (사용자 ID 기반)
+  const loadCustomQuestions = async () => {
+    try {
+      const questions = await dbService.getCustomQuestions(user.value.userId)
+      if (questions && questions.length > 0) {
+        customQuestions.value = questions
+        console.log('맞춤형 질문 로드 완료:', questions)
+      }
+      return questions
+    } catch (error) {
+      console.error('맞춤형 질문 로드 실패:', error)
+      return []
+    }
   }
 
   // 기본 질문 설정 (프로필 기반)
@@ -180,7 +246,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
       ]
     }
     
-    const positionQuestions = defaultByPosition[profile.position] || [
+    const positionQuestions = defaultByPosition[profile?.position] || [
       'IT 분야 최신 채용 트렌드를 알려주세요',
       '내 경력에 맞는 채용공고를 추천해주세요',
       '이직할 때 가장 중요하게 봐야 할 요소는?',
@@ -279,12 +345,13 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     }
     return labels[interest] || interest
   }
-  // 채팅 메시지 전송 (히스토리 포함)
+
+  // 채팅 메시지 전송 (실제 API 호출 추가)
   const sendChatMessage = async (message) => {
     try {
       console.log('API 호출 시작:', message)
       
-      // 1. 사용자 메시지를 IndexedDB에 저장
+      // 1. 사용자 메시지를 IndexedDB에 저장 (세션 ID 기반)
       await dbService.saveMessage(user.value.sessionId, 'user', message)
       
       // 2. 현재 세션의 모든 메시지 히스토리 가져오기
@@ -303,51 +370,69 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
       
       messages.push(...messageHistory)
       
-      // 4. API 호출 (시스템 프롬프트 + 히스토리 포함)
-      const response = await fetch(`${apiBaseUrl}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          messages: messages
-        })
-      })
-
-      console.log('API 응답 상태:', response.status)
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      console.log('API 응답 데이터:', data)
-
-      // 5. AI 응답을 추출
-      const aiReply = data.reply || data.message || '응답을 받지 못했습니다.'
+      let aiReply
       
-      // 6. AI 응답을 IndexedDB에 저장
+      // 4. API 연결 상태에 따라 분기 처리
+      if (isApiConnected.value) {
+        try {
+          console.log('실제 API 호출 시도...')
+          
+          const response = await fetch(`${apiBaseUrl.value}/chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              messages: messages
+            })
+          })
+
+          console.log('API 응답 상태:', response.status)
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+
+          const data = await response.json()
+          console.log('API 응답 데이터:', data)
+
+          // AI 응답을 추출
+          aiReply = data.reply || data.message || '응답을 받지 못했습니다.'
+          
+        } catch (apiError) {
+          console.error('API 호출 실패:', apiError)
+          
+          // API 호출 실패 시 연결 상태를 false로 변경
+          isApiConnected.value = false
+          
+          // 네트워크 오류에 따른 구체적인 메시지
+          if (apiError.name === 'TypeError' && apiError.message.includes('fetch')) {
+            aiReply = '네트워크 연결을 확인해주세요. 잠시 후 다시 시도해주세요.'
+          } else if (apiError.message.includes('500')) {
+            aiReply = '서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
+          } else if (apiError.message.includes('404')) {
+            aiReply = 'API 서비스를 찾을 수 없습니다. 서비스 상태를 확인 중입니다.'
+          } else {
+            aiReply = 'AI 서비스에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.'
+          }
+        }
+      } else {
+        // 오프라인 모드 응답
+        aiReply = '현재 AI 서비스에 연결할 수 없습니다. 네트워크 연결을 확인하고 페이지를 새로고침해주세요.'
+      }
+      
+      // 5. AI 응답을 IndexedDB에 저장 (세션 ID 기반)
       await dbService.saveMessage(user.value.sessionId, 'assistant', aiReply)
       
-      // 7. 세션 정보 업데이트
+      // 6. 세션 정보 업데이트
       await dbService.updateSession(user.value.sessionId)
       
       return aiReply
 
     } catch (error) {
-      console.error('API 호출 오류:', error)
-      
-      // 네트워크 오류 시 더 자세한 에러 메시지
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error('네트워크 연결을 확인해주세요.')
-      } else if (error.message.includes('500')) {
-        throw new Error('서버에 일시적인 문제가 발생했습니다.')
-      } else if (error.message.includes('404')) {
-        throw new Error('API 엔드포인트를 찾을 수 없습니다.')
-      } else {
-        throw new Error('API 호출 중 오류가 발생했습니다.')
-      }
+      console.error('메시지 처리 오류:', error)
+      throw new Error('메시지 처리 중 오류가 발생했습니다.')
     }
   }
 
@@ -355,7 +440,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   const loadChatHistory = async () => {
     try {
       const messages = await dbService.getMessagesBySession(user.value.sessionId)
-      console.log('채팅 히스토리 로드:', messages)
+      console.log('채팅 히스토리 로드:', messages.length, '개 메시지')
       return messages
     } catch (error) {
       console.error('채팅 히스토리 로드 실패:', error)
@@ -363,10 +448,37 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     }
   }
 
-  // 새 채팅 세션 시작
+  // 새 채팅 세션 시작 (세션 ID만 변경)
   const startNewChatSession = () => {
     user.value.sessionId = generateSessionId()
     console.log('새 채팅 세션 시작:', user.value.sessionId)
+  }
+
+  // 현재 세션의 대화 내용만 삭제 (세션 유지)
+  const clearCurrentChatHistory = async () => {
+    try {
+      await dbService.clearSessionMessages(user.value.sessionId)
+      console.log('현재 세션 대화 내용 삭제 완료')
+    } catch (error) {
+      console.error('대화 내용 삭제 실패:', error)
+      throw error
+    }
+  }
+
+  // 세션 완전 리셋 (새 세션 ID + 대화 내용 삭제)
+  const resetChatSession = async () => {
+    try {
+      // 기존 세션 삭제
+      await dbService.deleteSession(user.value.sessionId)
+      
+      // 새 세션 시작
+      startNewChatSession()
+      
+      console.log('채팅 세션 리셋 완료')
+    } catch (error) {
+      console.error('채팅 세션 리셋 실패:', error)
+      throw error
+    }
   }
 
   // 특정 세션 삭제
@@ -380,10 +492,11 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     }
   }
 
-  // 모든 채팅 데이터 삭제
+  // 모든 채팅 데이터 삭제 (사용자 데이터는 유지)
   const clearAllChatData = async () => {
     try {
-      await dbService.clearAllData()
+      await dbService.clearAllMessages()
+      await dbService.clearAllSessions()
       console.log('모든 채팅 데이터 삭제 완료')
     } catch (error) {
       console.error('채팅 데이터 삭제 실패:', error)
@@ -394,7 +507,9 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   // API 연결 상태 확인
   const checkApiConnection = async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/chat`, {
+      console.log('API 연결 상태 확인 중...')
+      
+      const response = await fetch(`${apiBaseUrl.value}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -403,13 +518,15 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
           messages: [
             { role: 'user', content: 'connection test' }
           ]
-        })
+        }),
+        signal: AbortSignal.timeout(5000) // 5초 타임아웃
       })
       
       isApiConnected.value = response.ok
+      console.log('API 연결 상태:', response.ok ? '연결됨' : '연결 실패')
       return response.ok
     } catch (error) {
-      console.error('API 연결 확인 실패:', error)
+      console.error('API 연결 확인 실패:', error.message)
       isApiConnected.value = false
       return false
     }
@@ -417,52 +534,98 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
 
   // ====== UTILITY FUNCTIONS ======
 
+  // 브라우저별 고정 사용자 ID 생성/조회
+  function generateOrGetUserId() {
+    const storageKey = 'job_analyzer_user_id'
+    let userId = localStorage.getItem(storageKey)
+    
+    if (!userId) {
+      userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+      localStorage.setItem(storageKey, userId)
+      console.log('새 사용자 ID 생성:', userId)
+    } else {
+      console.log('기존 사용자 ID 사용:', userId)
+    }
+    
+    return userId
+  }
+
   // 세션 ID 생성
   function generateSessionId() {
-    return 'chat_session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
   }
 
   // 앱 초기화
   const initializeApp = async () => {
-    console.log('Initializing Job-pt app...')
+    console.log('Job-pt 앱 초기화 시작...')
+    console.log('사용자 ID:', user.value.userId)
+    console.log('세션 ID:', user.value.sessionId)
     
-    // IndexedDB 초기화
     try {
+      // IndexedDB 초기화
       await dbService.init()
       console.log('IndexedDB 초기화 완료')
-    } catch (error) {
-      console.error('IndexedDB 초기화 실패:', error)
-    }
-    
-    // localStorage에서 온보딩 상태 확인
-    const completed = localStorage.getItem('job_analyzer_onboarding_completed')
-    if (completed === 'true') {
-      isOnboardingCompleted.value = true
-    }
+      
+      // 사용자별 온보딩 상태 확인
+      const onboardingKey = `job_analyzer_onboarding_${user.value.userId}`
+      const completed = localStorage.getItem(onboardingKey)
+      console.log('사용자별 온보딩 상태:', completed)
+      
+      if (completed === 'true') {
+        isOnboardingCompleted.value = true
+        console.log('온보딩 이미 완료됨')
+        
+        // 사용자 프로필 로드
+        await loadUserProfile()
+        
+        // 맞춤형 질문 로드
+        await loadCustomQuestions()
+      } else {
+        isOnboardingCompleted.value = false
+        console.log('온보딩 미완료 상태')
+      }
 
-    // API 연결 상태 확인
-    checkApiConnection()
+      // API 연결 상태 확인 (백그라운드에서)
+      checkApiConnection().catch(() => {
+        console.log('API 연결 확인 실패, 오프라인 모드로 동작')
+      })
+      
+    } catch (error) {
+      console.error('앱 초기화 중 오류:', error)
+      isOnboardingCompleted.value = false
+    }
     
-    console.log('Job-pt initialization complete')
+    // 초기화 완료 표시
+    isInitialized.value = true
+    console.log('Job-pt 초기화 완료')
+    console.log('온보딩 상태:', isOnboardingCompleted.value)
+    console.log('사용자 프로필:', user.value.profile)
+    console.log('맞춤형 질문:', customQuestions.value)
+    console.log('API 연결 상태:', isApiConnected.value)
   }
 
-  // 데이터 초기화 (개발/테스트용)
+  // 데이터 완전 초기화 (개발/테스트용)
   const resetAllData = async () => {
     try {
-      // IndexedDB 데이터 삭제
-      await clearAllChatData()
+      // 모든 데이터 삭제
+      await dbService.clearAllData()
+      
+      // localStorage 초기화
+      const userId = user.value.userId
+      localStorage.removeItem(`job_analyzer_onboarding_${userId}`)
+      localStorage.removeItem('job_analyzer_user_id')
       
       // 상태 초기화
       isOnboardingCompleted.value = false
       user.value = {
-        id: 1,
+        userId: generateOrGetUserId(),
         name: '사용자',
-        sessionId: generateSessionId()
+        sessionId: generateSessionId(),
+        profile: null
       }
+      customQuestions.value = []
       
-      localStorage.removeItem('job_analyzer_onboarding_completed')
-      
-      console.log('Job-pt 데이터가 초기화되었습니다.')
+      console.log('Job-pt 데이터가 완전히 초기화되었습니다.')
     } catch (error) {
       console.error('데이터 초기화 실패:', error)
     }
@@ -475,17 +638,23 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   return {
     // State
     isOnboardingCompleted,
+    isInitialized,
     user,
     isApiConnected,
     customQuestions,
     
     // Actions
     setOnboardingCompleted,
+    waitForInitialization,
     saveUserProfile,
+    loadUserProfile,
     generateCustomQuestions,
+    loadCustomQuestions,
     sendChatMessage,
     loadChatHistory,
     startNewChatSession,
+    clearCurrentChatHistory,
+    resetChatSession,
     deleteChatSession,
     clearAllChatData,
     checkApiConnection,
