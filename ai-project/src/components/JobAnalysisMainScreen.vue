@@ -10,20 +10,12 @@
             <p class="brand-subtitle">AI 채용공고 분석 도우미</p>
           </div>
         </div>
-        
+
         <div class="header-actions">
-          <button 
-            class="header-action-btn" 
-            @click="clearHistory" 
-            title="대화 내용 지우기 (세션 유지)"
-          >
+          <button class="header-action-btn" @click="clearHistory" title="대화 내용 지우기 (세션 유지)">
             <span>🗑️</span>
           </button>
-          <button 
-            class="header-action-btn reset-btn" 
-            @click="resetToOnboarding" 
-            title="완전 초기화 (온보딩부터 다시 시작)"
-          >
+          <button class="header-action-btn reset-btn" @click="resetToOnboarding" title="완전 초기화 (온보딩부터 다시 시작)">
             <span>🔄</span>
           </button>
         </div>
@@ -40,33 +32,28 @@
             <h2>채용공고에 대해 무엇이든 물어보세요!</h2>
             <p>AI가 채용공고를 분석하고 궁금한 점을 답변해드립니다.</p>
           </div>
-          
+
           <!-- 세션 정보 표시 -->
           <!-- <div class="session-info">
             <span class="session-id">세션: {{ shortSessionId }}</span>
           </div> -->
-          
+
           <!-- 예시 질문들 -->
           <div class="example-questions">
             <h3>{{ questionTitle }}</h3>
             <div class="question-list">
-              <button 
-                v-for="(question, index) in displayQuestions" 
-                :key="`question-${index}`"
-                class="example-btn"
-                :class="{ 'custom-question': hasCustomQuestions }"
-                @click="sendExample(question)"
-              >
+              <button v-for="(question, index) in displayQuestions" :key="`question-${index}`" class="example-btn"
+                :class="{ 'custom-question': hasCustomQuestions }" @click="sendExample(question)">
                 {{ question }}
               </button>
             </div>
-            
+
             <!-- 맞춤형 질문 안내 -->
             <div v-if="hasCustomQuestions" class="custom-note">
               <span class="note-icon">💡</span>
               <span>온보딩 정보를 바탕으로 생성된 맞춤형 질문입니다</span>
             </div>
-            
+
             <!-- 로딩 중일 때 -->
             <div v-if="isLoadingQuestions" class="loading-questions">
               <div class="loading-spinner"></div>
@@ -78,12 +65,8 @@
         <!-- 채팅 메시지 영역 -->
         <div v-if="messages.length > 0" class="messages-area">
           <div class="messages-container" ref="messagesContainer">
-            <div 
-              v-for="message in messages" 
-              :key="message.id"
-              class="message-wrapper"
-              :class="{ 'user-message': message.isUser }"
-            >
+            <div v-for="message in messages" :key="message.id" class="message-wrapper"
+              :class="{ 'user-message': message.isUser }">
               <div class="message-avatar">
                 <span>{{ message.isUser ? '👤' : '🤖' }}</span>
               </div>
@@ -92,8 +75,14 @@
                   <span class="message-sender">{{ message.isUser ? '사용자' : 'Job-pt' }}</span>
                   <span class="message-time">{{ formatTime(message.timestamp) }}</span>
                 </div>
-                <div class="message-text" v-html="formatMarkdown(message.text)"></div>
-
+                <div class="message-text" :data-message-id="message.id">
+                  <template v-if="message.isTyping">
+                    {{ message.partialText }}
+                  </template>
+                  <template v-else>
+                    <div v-html="formatMarkdown(message.text)"></div>
+                  </template>
+                </div>
               </div>
             </div>
 
@@ -122,27 +111,15 @@
     <footer class="input-section">
       <div class="input-container">
         <div class="input-wrapper">
-          <textarea
-            ref="messageInput"
-            v-model="newMessage"
-            class="message-input"
-            placeholder="채용공고나 궁금한 내용을 입력해주세요..."
-            rows="1"
-            @keydown="handleKeydown"
-            @input="handleInput"
-            :disabled="isLoading"
-          ></textarea>
-          
-          <button 
-            class="send-btn"
-            @click="sendMessage"
-            :disabled="!newMessage.trim() || isLoading"
-          >
+          <textarea ref="messageInput" v-model="newMessage" class="message-input" placeholder="채용공고나 궁금한 내용을 입력해주세요..."
+            rows="1" @keydown="handleKeydown" @input="handleInput" :disabled="isLoading"></textarea>
+
+          <button class="send-btn" @click="sendMessage" :disabled="!newMessage.trim() || isLoading">
             <span v-if="isLoading">⏳</span>
             <span v-else>➤</span>
           </button>
         </div>
-        
+
         <!-- 연결 상태 표시 -->
         <div v-if="!appStore.isApiConnected" class="connection-status">
           ⚠️ 서버 연결이 불안정합니다. 기본 기능만 사용 가능합니다.
@@ -213,7 +190,7 @@ const sendMessage = async () => {
   if (!newMessage.value.trim() || isLoading.value) return
 
   const userMessage = newMessage.value.trim()
-  
+
   // 사용자 메시지를 UI에 즉시 추가
   const userMsg = {
     id: Date.now(),
@@ -221,14 +198,14 @@ const sendMessage = async () => {
     isUser: true,
     timestamp: new Date()
   }
-  
+
   messages.value.push(userMsg)
   newMessage.value = ''
-  
+
   // 스크롤을 맨 아래로
   await nextTick()
   scrollToBottom()
-  
+
   // API 호출
   await sendToAPI(userMessage)
 }
@@ -240,54 +217,67 @@ const sendExample = (exampleText) => {
 
 const sendToAPI = async (message) => {
   isLoading.value = true
-  
-  // 로딩 메시지 애니메이션 시작
   startLoadingAnimation()
-  
+
   try {
     let response
-    
+
     if (appStore.isApiConnected) {
-      // Store의 sendChatMessage 호출
       response = await appStore.sendChatMessage(message)
     } else {
-      // 오프라인 모드일 때는 기본 응답
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise((r) => setTimeout(r, 1000))
       response = '현재 서버에 연결할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해주세요.'
     }
-    
-    // AI 응답 메시지를 UI에 추가
+
     const aiMsg = {
       id: Date.now() + 1,
       text: response,
+      partialText: '', // 실제 출력 텍스트
       isUser: false,
+      isTyping: true,
       timestamp: new Date()
     }
-    
+
     messages.value.push(aiMsg)
-    
     await nextTick()
     scrollToBottom()
-    
+
+    // 타이핑 효과 직접 적용 (HTML 태그 없이)
+    for (let i = 0; i <= response.length; i++) {
+      messages.value[messages.value.length - 1].partialText = response.slice(0, i)
+      await new Promise(resolve => setTimeout(resolve, 15)) // 속도 조절
+    }
+
+    // 완료 처리
+    messages.value[messages.value.length - 1].isTyping = false
+
   } catch (error) {
-    console.error('API 호출 오류:', error)
-    
-    // 에러 메시지 추가
-    const errorMsg = {
+    messages.value.push({
       id: Date.now() + 1,
       text: `죄송합니다. ${error.message || '일시적인 오류가 발생했습니다.'} 잠시 후 다시 시도해주세요.`,
       isUser: false,
       timestamp: new Date()
-    }
-    
-    messages.value.push(errorMsg)
-    
-    await nextTick()
-    scrollToBottom()
+    })
   } finally {
     isLoading.value = false
     stopLoadingAnimation()
   }
+}
+
+
+const typeWriterEffect = (element, text, speed = 20) => {
+  return new Promise((resolve) => {
+    let i = 0
+    const timer = setInterval(() => {
+      if (i < text.length) {
+        element.innerHTML += text[i]
+        i++
+      } else {
+        clearInterval(timer)
+        resolve()
+      }
+    }, speed)
+  })
 }
 
 // 로딩 애니메이션 관리
@@ -296,7 +286,7 @@ let loadingInterval = null
 const startLoadingAnimation = () => {
   currentLoadingIndex.value = 0
   currentLoadingText.value = loadingMessages.value[0]
-  
+
   loadingInterval = setInterval(() => {
     currentLoadingIndex.value = (currentLoadingIndex.value + 1) % loadingMessages.value.length
     currentLoadingText.value = loadingMessages.value[currentLoadingIndex.value]
@@ -325,9 +315,9 @@ const loadCustomQuestions = async () => {
   try {
     isLoadingQuestions.value = true
     console.log('맞춤형 질문 생성 시도...')
-    
+
     await appStore.generateCustomQuestions(appStore.user.profile)
-    
+
     console.log('맞춤형 질문 로드 완료:', appStore.customQuestions)
   } catch (error) {
     console.error('맞춤형 질문 로드 실패:', error)
@@ -370,10 +360,10 @@ const clearHistory = async () => {
     try {
       // IndexedDB에서 현재 세션의 메시지만 삭제
       await appStore.clearCurrentChatHistory()
-      
+
       // UI 메시지 초기화
       messages.value = []
-      
+
       console.log('대화 내용이 삭제되었습니다.')
     } catch (error) {
       console.error('대화 내용 삭제 실패:', error)
@@ -387,15 +377,15 @@ const resetToOnboarding = async () => {
   if (confirm('모든 데이터를 삭제하고 온보딩부터 다시 시작하시겠습니까?\n\n프로필, 맞춤형 질문, 모든 대화 내용이 삭제됩니다.')) {
     try {
       console.log('완전 초기화 시작...')
-      
+
       // Store의 완전 초기화 호출
       await appStore.resetAllData()
-      
+
       console.log('완전 초기화 완료, 페이지 새로고침')
-      
+
       // 페이지 새로고침으로 온보딩 화면으로 이동
       window.location.reload()
-      
+
     } catch (error) {
       console.error('완전 초기화 실패:', error)
       alert('초기화에 실패했습니다.')
@@ -407,7 +397,7 @@ const resetToOnboarding = async () => {
 const loadChatHistory = async () => {
   try {
     const history = await appStore.loadChatHistory()
-    
+
     // IndexedDB의 메시지를 UI 형태로 변환
     messages.value = history.map(msg => ({
       id: msg.id,
@@ -415,10 +405,10 @@ const loadChatHistory = async () => {
       isUser: msg.role === 'user',
       timestamp: new Date(msg.timestamp)
     }))
-    
+
     await nextTick()
     scrollToBottom()
-    
+
     console.log('채팅 히스토리 로드 완료:', messages.value.length, '개 메시지')
   } catch (error) {
     console.error('채팅 히스토리 로드 실패:', error)
@@ -443,17 +433,17 @@ onMounted(async () => {
   console.log('JobAnalysisMainScreen 마운트됨')
   console.log('사용자 ID:', appStore.user.userId)
   console.log('세션 ID:', appStore.user.sessionId)
-  
+
   if (messageInput.value) {
     messageInput.value.focus()
   }
-  
+
   // 1. 채팅 히스토리 복원
   await loadChatHistory()
-  
+
   // 2. 맞춤형 질문 로드
   await loadCustomQuestions()
-  
+
   console.log('메인 화면 초기화 완료')
   console.log('맞춤형 질문 상태:', hasCustomQuestions.value)
   console.log('표시할 질문들:', displayQuestions.value)
@@ -767,19 +757,40 @@ onMounted(async () => {
   white-space: pre-wrap;
 }
 
+.message-text.typing {
+  font-family: 'Courier New', monospace;
+  white-space: pre-wrap;
+  border-right: 2px solid #ccc;
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+
+  0%,
+  100% {
+    border-color: transparent;
+  }
+
+  50% {
+    border-color: #ccc;
+  }
+}
+
 .user-message .message-text {
   background: linear-gradient(45deg, #10b981, #059669);
   color: white;
 }
 
 /* 마크다운 스타일 */
-.message-text h1, .message-text h2, .message-text h3 {
+.message-text h1,
+.message-text h2,
+.message-text h3 {
   margin: 10px 0 5px 0;
   font-weight: 600;
 }
 
 .message-text code {
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   padding: 2px 4px;
   border-radius: 3px;
   font-family: monospace;
@@ -822,8 +833,13 @@ onMounted(async () => {
   animation: typing 1.4s infinite ease-in-out;
 }
 
-.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
-.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+.typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
 
 .loading-text {
   color: #666;
@@ -913,22 +929,33 @@ onMounted(async () => {
 
 /* 애니메이션 */
 @keyframes bounce {
-  0%, 20%, 50%, 80%, 100% {
+
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
     transform: translateY(0);
   }
+
   40% {
     transform: translateY(-8px);
   }
+
   60% {
     transform: translateY(-4px);
   }
 }
 
 @keyframes typing {
-  0%, 80%, 100% {
+
+  0%,
+  80%,
+  100% {
     transform: scale(0);
     opacity: 0.5;
   }
+
   40% {
     transform: scale(1);
     opacity: 1;
@@ -936,8 +963,13 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* 스크롤바 */
@@ -972,60 +1004,60 @@ onMounted(async () => {
   .main-header {
     padding: 12px 20px;
   }
-  
+
   .brand-title {
     font-size: 18px;
   }
-  
+
   .brand-subtitle {
     font-size: 12px;
   }
-  
+
   .brand-icon {
     font-size: 28px;
   }
-  
+
   .main-content {
     padding: 10px;
   }
-  
+
   .input-section {
     padding: 12px 15px;
   }
-  
+
   .question-list {
     gap: 8px;
     max-height: 200px;
   }
-  
+
   .example-btn {
     padding: 10px 12px;
     font-size: 12px;
   }
-  
+
   .welcome-message h2 {
     font-size: 20px;
   }
-  
+
   .welcome-message p {
     font-size: 14px;
   }
-  
+
   .welcome-avatar {
     font-size: 45px;
     margin-bottom: 12px;
   }
-  
+
   .message-content {
     max-width: 85%;
   }
-  
+
   .welcome-section {
     min-height: calc(100vh - 180px);
     max-height: calc(100vh - 180px);
     padding: 15px;
   }
-  
+
   .messages-area {
     min-height: calc(100vh - 180px);
     max-height: calc(100vh - 180px);
@@ -1036,53 +1068,54 @@ onMounted(async () => {
   .welcome-avatar {
     font-size: 40px;
   }
-  
+
   .brand-icon {
     font-size: 24px;
   }
-  
+
   .brand-title {
     font-size: 16px;
   }
-  
+
   .brand-subtitle {
     font-size: 11px;
   }
-  
+
   .welcome-section {
     padding: 12px;
     min-height: calc(100vh - 160px);
     max-height: calc(100vh - 160px);
   }
-  
+
   .messages-area {
     min-height: calc(100vh - 160px);
     max-height: calc(100vh - 160px);
   }
-  
+
   .welcome-message h2 {
     font-size: 18px;
   }
-  
+
   .welcome-message p {
     font-size: 13px;
     margin-bottom: 15px;
   }
-  
+
   .message-input {
-    font-size: 16px; /* iOS에서 줌 방지 */
+    font-size: 16px;
+    /* iOS에서 줌 방지 */
   }
-  
+
   .header-actions {
     gap: 6px;
   }
-  
+
   .header-action-btn {
     min-width: 32px;
     height: 32px;
     font-size: 14px;
   }
-  
+
   .question-list {
     max-height: 180px;
   }
