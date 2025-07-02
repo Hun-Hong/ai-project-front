@@ -644,7 +644,7 @@ onMounted(async () => {
 }
 
 .example-btn.custom-question {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(96, 165, 250, 0.1));
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.95), rgba(96, 165, 250, 0.7));
   border: 1px solid rgba(96, 165, 250, 0.3);
 }
 

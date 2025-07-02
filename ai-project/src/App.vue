@@ -52,25 +52,17 @@ const handleOnboardingComplete = async (profileData) => {
   console.log('온보딩 완료:', profileData)
   
   try {
-    // 프로필 데이터 저장
     await appStore.saveUserProfile(profileData)
-    
-    // 맞춤형 질문 생성
     await appStore.generateCustomQuestions(profileData)
-    
-    // 온보딩 완료 상태 저장
     appStore.setOnboardingCompleted(true)
-    
-    // 메인 화면으로 이동
     currentScreen.value = 'main'
-    
     console.log('온보딩 완료 처리 성공')
   } catch (error) {
     console.error('온보딩 완료 처리 실패:', error)
-    // 에러가 발생해도 메인 화면으로 이동
     appStore.setOnboardingCompleted(true)
     currentScreen.value = 'main'
   }
+  // 여기서 isCompleting을 false로 변경하지 않음 (화면 전환되므로)
 }
 
 const handleOnboardingSkip = () => {

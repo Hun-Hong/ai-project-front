@@ -12,18 +12,13 @@
         <div class="step-icon">👋</div>
         <h2 class="step-title">안녕하세요!<br>간단한 정보를 알려주세요</h2>
         <p class="step-description">맞춤형 채용정보를 제공하기 위해 몇 가지 질문드릴게요</p>
-        
+
         <div class="form-section">
           <div class="form-group">
             <label class="form-label">현재 상태</label>
             <div class="option-grid">
-              <button 
-                v-for="status in statusOptions" 
-                :key="status.value"
-                class="option-btn"
-                :class="{ active: userProfile.status === status.value }"
-                @click="selectOption('status', status.value)"
-              >
+              <button v-for="status in statusOptions" :key="status.value" class="option-btn"
+                :class="{ active: userProfile.status === status.value }" @click="selectOption('status', status.value)">
                 <span class="option-icon">{{ status.icon }}</span>
                 <span class="option-text">{{ status.label }}</span>
               </button>
@@ -33,13 +28,9 @@
           <div class="form-group">
             <label class="form-label">경력 수준</label>
             <div class="option-grid">
-              <button 
-                v-for="exp in experienceOptions" 
-                :key="exp.value"
-                class="option-btn"
+              <button v-for="exp in experienceOptions" :key="exp.value" class="option-btn"
                 :class="{ active: userProfile.experience === exp.value }"
-                @click="selectOption('experience', exp.value)"
-              >
+                @click="selectOption('experience', exp.value)">
                 <span class="option-icon">{{ exp.icon }}</span>
                 <span class="option-text">{{ exp.label }}</span>
               </button>
@@ -49,13 +40,8 @@
           <div class="form-group">
             <label class="form-label">희망 직무</label>
             <div class="option-grid single-column">
-              <button 
-                v-for="pos in positionOptions" 
-                :key="pos.value"
-                class="option-btn"
-                :class="{ active: userProfile.position === pos.value }"
-                @click="selectOption('position', pos.value)"
-              >
+              <button v-for="pos in positionOptions" :key="pos.value" class="option-btn"
+                :class="{ active: userProfile.position === pos.value }" @click="selectOption('position', pos.value)">
                 <span class="option-icon">{{ pos.icon }}</span>
                 <span class="option-text">{{ pos.label }}</span>
               </button>
@@ -69,18 +55,14 @@
         <div class="step-icon">⚙️</div>
         <h2 class="step-title">선호하는 근무환경을<br>알려주세요</h2>
         <p class="step-description">더 정확한 맞춤 정보를 위해 필요해요</p>
-        
+
         <div class="form-section">
           <div class="form-group">
             <label class="form-label">선호 회사 규모</label>
             <div class="option-grid">
-              <button 
-                v-for="size in companySizeOptions" 
-                :key="size.value"
-                class="option-btn"
+              <button v-for="size in companySizeOptions" :key="size.value" class="option-btn"
                 :class="{ active: userProfile.companySize === size.value }"
-                @click="selectOption('companySize', size.value)"
-              >
+                @click="selectOption('companySize', size.value)">
                 <span class="option-icon">{{ size.icon }}</span>
                 <span class="option-text">{{ size.label }}</span>
               </button>
@@ -90,13 +72,8 @@
           <div class="form-group">
             <label class="form-label">선호 근무 형태</label>
             <div class="option-grid">
-              <button 
-                v-for="work in workTypeOptions" 
-                :key="work.value"
-                class="option-btn"
-                :class="{ active: userProfile.workType === work.value }"
-                @click="selectOption('workType', work.value)"
-              >
+              <button v-for="work in workTypeOptions" :key="work.value" class="option-btn"
+                :class="{ active: userProfile.workType === work.value }" @click="selectOption('workType', work.value)">
                 <span class="option-icon">{{ work.icon }}</span>
                 <span class="option-text">{{ work.label }}</span>
               </button>
@@ -106,13 +83,8 @@
           <div class="form-group" v-if="currentTechStackOptions.length > 0">
             <label class="form-label">관심 기술 스택 (중복 선택 가능)</label>
             <div class="option-grid tech-grid">
-              <button 
-                v-for="tech in currentTechStackOptions" 
-                :key="tech.value"
-                class="option-btn tech-btn"
-                :class="{ active: userProfile.techStack.includes(tech.value) }"
-                @click="toggleTechStack(tech.value)"
-              >
+              <button v-for="tech in currentTechStackOptions" :key="tech.value" class="option-btn tech-btn"
+                :class="{ active: userProfile.techStack.includes(tech.value) }" @click="toggleTechStack(tech.value)">
                 <span class="option-text">{{ tech.label }}</span>
               </button>
             </div>
@@ -125,18 +97,13 @@
         <div class="step-icon">🎯</div>
         <h2 class="step-title">목표와 우선순위를<br>설정해주세요</h2>
         <p class="step-description">맞춤형 조언을 위해 마지막 질문이에요</p>
-        
+
         <div class="form-section">
           <div class="form-group">
             <label class="form-label">이직/취업 목표 시기</label>
             <div class="option-grid">
-              <button 
-                v-for="time in timelineOptions" 
-                :key="time.value"
-                class="option-btn"
-                :class="{ active: userProfile.timeline === time.value }"
-                @click="selectOption('timeline', time.value)"
-              >
+              <button v-for="time in timelineOptions" :key="time.value" class="option-btn"
+                :class="{ active: userProfile.timeline === time.value }" @click="selectOption('timeline', time.value)">
                 <span class="option-icon">{{ time.icon }}</span>
                 <span class="option-text">{{ time.label }}</span>
               </button>
@@ -146,14 +113,10 @@
           <div class="form-group">
             <label class="form-label">중요하게 생각하는 요소 (2개까지 선택)</label>
             <div class="option-grid">
-              <button 
-                v-for="priority in priorityOptions" 
-                :key="priority.value"
-                class="option-btn"
+              <button v-for="priority in priorityOptions" :key="priority.value" class="option-btn"
                 :class="{ active: userProfile.priorities.includes(priority.value) }"
                 @click="togglePriority(priority.value)"
-                :disabled="!userProfile.priorities.includes(priority.value) && userProfile.priorities.length >= 2"
-              >
+                :disabled="!userProfile.priorities.includes(priority.value) && userProfile.priorities.length >= 2">
                 <span class="option-icon">{{ priority.icon }}</span>
                 <span class="option-text">{{ priority.label }}</span>
               </button>
@@ -163,13 +126,9 @@
           <div class="form-group">
             <label class="form-label">현재 가장 궁금한 것</label>
             <div class="option-grid">
-              <button 
-                v-for="interest in interestOptions" 
-                :key="interest.value"
-                class="option-btn"
+              <button v-for="interest in interestOptions" :key="interest.value" class="option-btn"
                 :class="{ active: userProfile.mainInterest === interest.value }"
-                @click="selectOption('mainInterest', interest.value)"
-              >
+                @click="selectOption('mainInterest', interest.value)">
                 <span class="option-icon">{{ interest.icon }}</span>
                 <span class="option-text">{{ interest.label }}</span>
               </button>
@@ -178,28 +137,23 @@
         </div>
       </div>
     </div>
-    
+
     <div class="onboarding-actions">
-      <button 
-        v-if="step > 1"
-        class="btn btn-secondary" 
-        @click="handlePrev"
-      >
+      <button v-if="step > 1" class="btn btn-secondary" @click="handlePrev">
         이전
       </button>
-      
-      <button 
-        class="btn btn-primary" 
-        @click="handleNext"
-        :disabled="!isStepValid()"
-      >
-        {{ step === 3 ? '맞춤 설정 완료' : '다음' }}
+
+      <button class="btn btn-primary" @click="handleNext" :disabled="!isStepValid() || isCompleting">
+        <span v-if="isCompleting && step === 3" class="loading-content">
+          <span class="btn-spinner"></span>
+          설정 저장 중...
+        </span>
+        <span v-else>
+          {{ step === 3 ? '맞춤 설정 완료' : '다음' }}
+        </span>
       </button>
-      
-      <button 
-        class="btn btn-text" 
-        @click="handleSkip"
-      >
+
+      <button class="btn btn-text" @click="handleSkip">
         건너뛰기
       </button>
     </div>
@@ -207,7 +161,7 @@
 </template>
 
 <script setup>
-import { reactive, computed } from 'vue'
+import { reactive, computed, ref } from 'vue'
 
 const props = defineProps({
   step: {
@@ -217,6 +171,7 @@ const props = defineProps({
   }
 })
 
+const isCompleting = ref(false)
 const emit = defineEmits(['next', 'prev', 'skip', 'complete'])
 
 // 사용자 프로필 데이터
@@ -390,26 +345,33 @@ const isStepValid = () => {
   }
 }
 
-const handleNext = () => {
+const handleNext = async () => {
   console.log('다음 버튼 클릭, 현재 단계:', props.step)
   console.log('현재 프로필 데이터:', userProfile)
-  
+
   if (props.step === 3) {
-    // 3단계 완료 시 complete 이벤트 발생 - 순수한 객체로 변환
-    const profileData = {
-      status: userProfile.status,
-      experience: userProfile.experience,
-      position: userProfile.position,
-      companySize: userProfile.companySize,
-      workType: userProfile.workType,
-      techStack: [...userProfile.techStack], // 배열 복사
-      timeline: userProfile.timeline,
-      priorities: [...userProfile.priorities], // 배열 복사
-      mainInterest: userProfile.mainInterest
+    // 완료 처리 중 상태로 변경
+    isCompleting.value = true
+
+    try {
+      const profileData = {
+        status: userProfile.status,
+        experience: userProfile.experience,
+        position: userProfile.position,
+        companySize: userProfile.companySize,
+        workType: userProfile.workType,
+        techStack: [...userProfile.techStack],
+        timeline: userProfile.timeline,
+        priorities: [...userProfile.priorities],
+        mainInterest: userProfile.mainInterest
+      }
+
+      emit('complete', profileData)
+    } catch (error) {
+      console.error('완료 처리 중 오류:', error)
+      isCompleting.value = false
     }
-    emit('complete', profileData)
   } else {
-    // 다음 단계로 이동
     emit('next', { ...userProfile })
   }
 }
@@ -631,6 +593,7 @@ const handleSkip = () => {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -641,35 +604,56 @@ const handleSkip = () => {
   .onboarding-screen {
     padding: 15px;
   }
-  
+
   .step-icon {
     font-size: 40px;
     margin-bottom: 15px;
   }
-  
+
   .step-title {
     font-size: 20px;
   }
-  
+
   .step-description {
     font-size: 14px;
   }
-  
+
   .option-grid {
     grid-template-columns: 1fr;
     gap: 8px;
   }
-  
+
   .option-grid.tech-grid {
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   }
-  
+
   .option-btn {
     padding: 12px 10px;
   }
-  
+
   .option-text {
     font-size: 12px;
   }
+}
+
+.loading-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(59, 130, 246, 0.3);
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
 }
 </style>
