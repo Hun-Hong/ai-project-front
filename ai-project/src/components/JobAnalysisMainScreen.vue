@@ -87,7 +87,7 @@
             </div>
 
             <!-- 로딩 인디케이터 -->
-            <div v-if="isLoading" class="message-wrapper">
+            <div v-if="isLoading && !messages[messages.length - 1]?.isTyping" class="message-wrapper">
               <div class="message-avatar">
                 <span>🤖</span>
               </div>
