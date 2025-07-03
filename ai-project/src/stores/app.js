@@ -4,11 +4,11 @@ import dbService from '../services/indexedDB.js'
 
 export const useAppStore = defineStore('jobAnalyzer', () => {
   // ====== STATE ======
-  
+
   // 앱 기본 상태
   const isOnboardingCompleted = ref(false)
   const isInitialized = ref(false)
-  
+
   // 사용자 정보 (고정 ID + 임시 세션)
   const user = ref({
     userId: generateOrGetUserId(), // 브라우저별 고정 ID
@@ -34,13 +34,13 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   // 초기화 대기 함수
   const waitForInitialization = async () => {
     if (isInitialized.value) return
-    
+
     return new Promise((resolve) => {
       const checkInit = () => {
         if (isInitialized.value) {
           resolve()
         } else {
-          setTimeout(checkInit, 100)
+          setTimeout(checkInit, 1000)
         }
       }
       checkInit()
@@ -51,12 +51,12 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   const saveUserProfile = async (profile) => {
     try {
       console.log('사용자 프로필 저장 시작:', profile)
-      
+
       user.value.profile = profile
-      
+
       // IndexedDB에 사용자 ID로 프로필 저장
       await dbService.saveUserProfile(user.value.userId, profile)
-      
+
       console.log('사용자 프로필 저장 완료')
       return profile
     } catch (error) {
@@ -85,19 +85,19 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   const generateCustomQuestions = async (profile) => {
     try {
       console.log('맞춤형 질문 생성 시작...')
-      
+
       // API가 연결되어 있을 때만 AI 생성 시도
       if (isApiConnected.value) {
         await generateAIQuestions(profile)
       } else {
         setDefaultQuestions(profile)
       }
-      
+
       // IndexedDB에 사용자 ID로 저장
       if (customQuestions.value.length > 0) {
         await dbService.saveCustomQuestions(user.value.userId, customQuestions.value)
       }
-      
+
       console.log('맞춤형 질문 생성 완료:', customQuestions.value)
     } catch (error) {
       console.error('맞춤형 질문 생성 실패:', error)
@@ -109,7 +109,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   const generateAIQuestions = async (profile) => {
     try {
       const systemPrompt = createSystemPrompt(profile)
-      
+
       const response = await fetch(`${apiBaseUrl.value}/chat`, {
         method: 'POST',
         headers: {
@@ -118,13 +118,13 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
         },
         body: JSON.stringify({
           messages: [
-            { 
-              role: 'system', 
-              content: systemPrompt 
+            {
+              role: 'system',
+              content: systemPrompt
             },
-            { 
-              role: 'user', 
-              content: '위 프로필에 맞는 채용공고 관련 질문 5개를 간단하고 명확하게 생성해주세요. 각 질문은 한 줄로 작성하고, 번호나 특수문자 없이 순수한 질문 문장만 제공해주세요.' 
+            {
+              role: 'user',
+              content: '위 프로필에 맞는 채용공고 관련 질문 4개를 간단하고 명확하게 생성해주세요. 각 질문은 한 줄로 작성하고, 번호나 특수문자 없이 순수한 질문 문장만 제공해주세요.' // 5개에서 4개로 변경
             }
           ]
         })
@@ -136,21 +136,22 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
 
       const data = await response.json()
       const questionsText = data.reply || ''
-      
+
       // 응답에서 질문들 파싱
       const questions = parseQuestionsFromResponse(questionsText)
-      
+
       if (questions.length > 0) {
         customQuestions.value = questions
       } else {
         setDefaultQuestions(profile)
       }
-      
+
     } catch (error) {
       console.error('AI 질문 생성 실패:', error)
       setDefaultQuestions(profile)
     }
   }
+
 
   // 시스템 프롬프트 생성
   const createSystemPrompt = (profile) => {
@@ -161,7 +162,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
 - 경력 수준: ${getExperienceLabel(profile.experience)}  
 - 희망 직무: ${getPositionLabel(profile.position)}
 - 관심 기술: ${profile.techStack?.join(', ') || '미설정'}
-- 관심 회사규모: ${getCompanySizeLabel(profile.companySize)}
+- 관심 회사규모: ${getCompanySizeLabel(profile.companySize)} // 수정된 부분
 - 근무형태: ${getWorkTypeLabel(profile.workType)}
 - 중요 요소: ${profile.priorities?.map(p => getPriorityLabel(p)).join(', ') || '미설정'}
 - 관심사: ${getInterestLabel(profile.mainInterest)}
@@ -171,23 +172,23 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
 현재 상태와 경력 수준에 적합한 수준의 조언을 해주세요.
 단, 희망 직무 위주로 고려 해주세요.
     `.trim()
-    
+
     return profileText
   }
 
   // 응답에서 질문 파싱
   const parseQuestionsFromResponse = (responseText) => {
     const questions = []
-    
+
     // 줄바꿈으로 분리
     const lines = responseText.split('\n')
-    
+
     for (const line of lines) {
       const trimmed = line.trim()
-      
+
       // 빈 줄 제외
       if (!trimmed) continue
-      
+
       // 번호나 특수문자 제거
       let cleaned = trimmed
         .replace(/^\d+\.\s*/, '') // "1. " 형태 제거
@@ -195,15 +196,16 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
         .replace(/^•\s*/, '') // "• " 형태 제거
         .replace(/^[*]\s*/, '') // "* " 형태 제거
         .trim()
-      
+
       // 질문으로 보이는 문장만 추가
       if (cleaned && (cleaned.includes('?') || cleaned.includes('어떤') || cleaned.includes('무엇') || cleaned.includes('어디'))) {
         questions.push(cleaned)
       }
     }
-    
-    return questions.slice(0, 5) // 최대 5개
+
+    return questions.slice(0, 4) // 최대 4개로 변경
   }
+
 
   // 맞춤형 질문 로드 (사용자 ID 기반)
   const loadCustomQuestions = async () => {
@@ -225,35 +227,31 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     const defaultByPosition = {
       frontend_developer: [
         '프론트엔드 개발자 신입 채용공고 추천해주세요',
-        'React를 사용하는 회사들의 최신 채용 동향은 어떤가요?',
+        'React를 사용하는 회사들의 최신 채용 동향은?',
         '프론트엔드 개발자의 평균 연봉은 얼마나 되나요?',
-        '스타트업과 대기업 중 프론트엔드 개발자에게 더 유리한 곳은?',
-        '원격근무 가능한 프론트엔드 개발자 채용공고가 있나요?'
+        '원격근무 가능한 프론트엔드 채용공고가 있나요?'
       ],
       backend_developer: [
         '백엔드 개발자 채용공고에서 가장 많이 요구하는 기술은?',
         'Python과 Java 중 어떤 언어가 더 수요가 많나요?',
         '백엔드 개발자 연봉 협상 팁을 알려주세요',
-        'MSA 경험이 있는 백엔드 개발자 채용공고 찾아주세요',
-        '클라우드 경험을 요구하는 백엔드 채용공고가 많나요?'
+        'MSA 경험이 있는 백엔드 개발자 채용공고 찾아주세요'
       ],
       data_analyst: [
         '데이터 분석가 신입 채용에서 요구하는 필수 스킬은?',
         'SQL과 Python 외에 배워야 할 기술이 있나요?',
         '데이터 분석가 포트폴리오는 어떻게 준비해야 하나요?',
-        '금융권과 IT기업 중 데이터 분석가에게 더 좋은 곳은?',
-        '빅데이터 관련 자격증이 취업에 도움이 될까요?'
+        '금융권과 IT기업 중 데이터 분석가에게 더 좋은 곳은?'
       ]
     }
-    
+
     const positionQuestions = defaultByPosition[profile?.position] || [
       'IT 분야 최신 채용 트렌드를 알려주세요',
       '내 경력에 맞는 채용공고를 추천해주세요',
       '이직할 때 가장 중요하게 봐야 할 요소는?',
-      '면접에서 자주 나오는 질문들을 알려주세요',
       '연봉 협상은 어떻게 하는 것이 좋을까요?'
     ]
-    
+
     customQuestions.value = positionQuestions
   }
 
@@ -261,7 +259,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   const getStatusLabel = (status) => {
     const labels = {
       job_seeking: '구직중',
-      job_changing: '이직준비중', 
+      job_changing: '이직준비중',
       exploring: '정보수집 단계'
     }
     return labels[status] || status
@@ -293,16 +291,23 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     return labels[position] || position
   }
 
-  const getCompanySizeLabel = (size) => {
+  const getCompanySizeLabel = (sizes) => {
     const labels = {
       startup: '스타트업',
       small: '중소기업',
-      medium: '중견기업', 
+      medium: '중견기업',
       large: '대기업',
       any: '상관없음'
     }
-    return labels[size] || size
+
+    // 배열인 경우 각 값을 라벨로 변환하여 조인
+    if (Array.isArray(sizes)) {
+      return sizes.map(size => labels[size] || size).join(', ')
+    }
+
+    return labels[sizes] || sizes
   }
+
 
   const getWorkTypeLabel = (type) => {
     const labels = {
@@ -340,42 +345,43 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   const sendChatMessage = async (message) => {
     try {
       console.log('API 호출 시작:', message)
-      
+
       // 1. 사용자 메시지를 IndexedDB에 저장 (세션 ID 기반)
       await dbService.saveMessage(user.value.sessionId, 'user', message)
-      
+
       // 2. 현재 세션의 모든 메시지 히스토리 가져오기
       const messageHistory = await dbService.getMessagesForAPI(user.value.sessionId)
       console.log('메시지 히스토리:', messageHistory)
-      
-      // 3. 시스템 프롬프트 추가 (프로필이 있는 경우)
-      const messages = []
-      
-      if (user.value.profile) {
-        messages.push({
-          role: 'system',
-          content: createSystemPrompt(user.value.profile)
-        })
+
+      // 3. 새로운 API 형식에 맞게 요청 본문 구성
+      const requestBody = {
+        messages: messageHistory,
+        userProfile: user.value.profile || {
+          status: "",
+          experience: "",
+          position: "",
+          companySize: [],
+          workType: "",
+          techStack: [],
+          priorities: [],
+          mainInterest: ""
+        }
       }
-      
-      messages.push(...messageHistory)
-      
+
       let aiReply
-      
+
       // 4. API 연결 상태에 따라 분기 처리
       if (isApiConnected.value) {
         try {
           console.log('실제 API 호출 시도...')
-          
+
           const response = await fetch(`${apiBaseUrl.value}/rag`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             },
-            body: JSON.stringify({
-              messages: messages
-            })
+            body: JSON.stringify(requestBody)
           })
 
           console.log('API 응답 상태:', response.status)
@@ -389,13 +395,13 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
 
           // AI 응답을 추출
           aiReply = data.reply || data.message || '응답을 받지 못했습니다.'
-          
+
         } catch (apiError) {
           console.error('API 호출 실패:', apiError)
-          
+
           // API 호출 실패 시 연결 상태를 false로 변경
           isApiConnected.value = false
-          
+
           // 네트워크 오류에 따른 구체적인 메시지
           if (apiError.name === 'TypeError' && apiError.message.includes('fetch')) {
             aiReply = '네트워크 연결을 확인해주세요. 잠시 후 다시 시도해주세요.'
@@ -411,13 +417,13 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
         // 오프라인 모드 응답
         aiReply = '현재 AI 서비스에 연결할 수 없습니다. 네트워크 연결을 확인하고 페이지를 새로고침해주세요.'
       }
-      
+
       // 5. AI 응답을 IndexedDB에 저장 (세션 ID 기반)
       await dbService.saveMessage(user.value.sessionId, 'assistant', aiReply)
-      
+
       // 6. 세션 정보 업데이트
       await dbService.updateSession(user.value.sessionId)
-      
+
       return aiReply
 
     } catch (error) {
@@ -425,6 +431,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
       throw new Error('메시지 처리 중 오류가 발생했습니다.')
     }
   }
+
 
   // 현재 세션의 메시지 히스토리 로드
   const loadChatHistory = async () => {
@@ -460,10 +467,10 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     try {
       // 기존 세션 삭제
       await dbService.deleteSession(user.value.sessionId)
-      
+
       // 새 세션 시작
       startNewChatSession()
-      
+
       console.log('채팅 세션 리셋 완료')
     } catch (error) {
       console.error('채팅 세션 리셋 실패:', error)
@@ -495,11 +502,12 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   }
 
   // API 연결 상태 확인
+  // API 연결 상태 확인
   const checkApiConnection = async () => {
     try {
       console.log('API 연결 상태 확인 중...')
-      
-      const response = await fetch(`${apiBaseUrl.value}/chat`, {
+
+      const response = await fetch(`${apiBaseUrl.value}/rag`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -507,11 +515,21 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
         body: JSON.stringify({
           messages: [
             { role: 'user', content: 'connection test' }
-          ]
+          ],
+          userProfile: {
+            status: "",
+            experience: "",
+            position: "",
+            companySize: [],
+            workType: "",
+            techStack: [],
+            priorities: [],
+            mainInterest: ""
+          }
         }),
-        signal: AbortSignal.timeout(5000) // 5초 타임아웃
+        signal: AbortSignal.timeout(15000) // 5초 타임아웃
       })
-      
+
       isApiConnected.value = response.ok
       console.log('API 연결 상태:', response.ok ? '연결됨' : '연결 실패')
       return response.ok
@@ -528,7 +546,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
   function generateOrGetUserId() {
     const storageKey = 'job_analyzer_user_id'
     let userId = localStorage.getItem(storageKey)
-    
+
     if (!userId) {
       userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
       localStorage.setItem(storageKey, userId)
@@ -536,7 +554,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     } else {
       console.log('기존 사용자 ID 사용:', userId)
     }
-    
+
     return userId
   }
 
@@ -550,24 +568,24 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     console.log('Job-pt 앱 초기화 시작...')
     console.log('사용자 ID:', user.value.userId)
     console.log('세션 ID:', user.value.sessionId)
-    
+
     try {
       // IndexedDB 초기화
       await dbService.init()
       console.log('IndexedDB 초기화 완료')
-      
+
       // 사용자별 온보딩 상태 확인
       const onboardingKey = `job_analyzer_onboarding_${user.value.userId}`
       const completed = localStorage.getItem(onboardingKey)
       console.log('사용자별 온보딩 상태:', completed)
-      
+
       if (completed === 'true') {
         isOnboardingCompleted.value = true
         console.log('온보딩 이미 완료됨')
-        
+
         // 사용자 프로필 로드
         await loadUserProfile()
-        
+
         // 맞춤형 질문 로드
         await loadCustomQuestions()
       } else {
@@ -579,12 +597,12 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
       checkApiConnection().catch(() => {
         console.log('API 연결 확인 실패, 오프라인 모드로 동작')
       })
-      
+
     } catch (error) {
       console.error('앱 초기화 중 오류:', error)
       isOnboardingCompleted.value = false
     }
-    
+
     // 초기화 완료 표시
     isInitialized.value = true
     console.log('Job-pt 초기화 완료')
@@ -599,12 +617,12 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     try {
       // 모든 데이터 삭제
       await dbService.clearAllData()
-      
+
       // localStorage 초기화
       const userId = user.value.userId
       localStorage.removeItem(`job_analyzer_onboarding_${userId}`)
       localStorage.removeItem('job_analyzer_user_id')
-      
+
       // 상태 초기화
       isOnboardingCompleted.value = false
       user.value = {
@@ -614,7 +632,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
         profile: null
       }
       customQuestions.value = []
-      
+
       console.log('Job-pt 데이터가 완전히 초기화되었습니다.')
     } catch (error) {
       console.error('데이터 초기화 실패:', error)
@@ -632,7 +650,7 @@ export const useAppStore = defineStore('jobAnalyzer', () => {
     user,
     isApiConnected,
     customQuestions,
-    
+
     // Actions
     setOnboardingCompleted,
     waitForInitialization,

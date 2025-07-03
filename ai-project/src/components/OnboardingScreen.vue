@@ -9,7 +9,9 @@
 
       <!-- 1단계: 기본 정보 -->
       <div v-if="step === 1" class="step-content">
-        <div class="step-icon">👋</div>
+        <div class="step-icon">
+          <Hand />
+        </div>
         <h2 class="step-title">안녕하세요!<br>간단한 정보를 알려주세요</h2>
         <p class="step-description">맞춤형 채용정보를 제공하기 위해 몇 가지 질문드릴게요</p>
 
@@ -19,7 +21,7 @@
             <div class="option-grid">
               <button v-for="status in statusOptions" :key="status.value" class="option-btn"
                 :class="{ active: userProfile.status === status.value }" @click="selectOption('status', status.value)">
-                <span class="option-icon">{{ status.icon }}</span>
+                <component :is="getIconComponent(status.icon)" class="option-icon" />
                 <span class="option-text">{{ status.label }}</span>
               </button>
             </div>
@@ -31,7 +33,7 @@
               <button v-for="exp in experienceOptions" :key="exp.value" class="option-btn"
                 :class="{ active: userProfile.experience === exp.value }"
                 @click="selectOption('experience', exp.value)">
-                <span class="option-icon">{{ exp.icon }}</span>
+                <component :is="getIconComponent(exp.icon)" class="option-icon" />
                 <span class="option-text">{{ exp.label }}</span>
               </button>
             </div>
@@ -42,7 +44,7 @@
             <div class="option-grid single-column">
               <button v-for="pos in positionOptions" :key="pos.value" class="option-btn"
                 :class="{ active: userProfile.position === pos.value }" @click="selectOption('position', pos.value)">
-                <span class="option-icon">{{ pos.icon }}</span>
+                <component :is="getIconComponent(pos.icon)" class="option-icon" />
                 <span class="option-text">{{ pos.label }}</span>
               </button>
             </div>
@@ -52,18 +54,20 @@
 
       <!-- 2단계: 선호도 -->
       <div v-if="step === 2" class="step-content">
-        <div class="step-icon">⚙️</div>
+        <div class="step-icon">
+          <Settings />
+        </div>
         <h2 class="step-title">선호하는 근무환경을<br>알려주세요</h2>
         <p class="step-description">더 정확한 맞춤 정보를 위해 필요해요</p>
 
         <div class="form-section">
           <div class="form-group">
-            <label class="form-label">선호 회사 규모</label>
+            <label class="form-label">선호 회사 규모 (중복 선택 가능)</label>
             <div class="option-grid">
               <button v-for="size in companySizeOptions" :key="size.value" class="option-btn"
-                :class="{ active: userProfile.companySize === size.value }"
-                @click="selectOption('companySize', size.value)">
-                <span class="option-icon">{{ size.icon }}</span>
+                :class="{ active: userProfile.companySize.includes(size.value) }"
+                @click="toggleCompanySize(size.value)">
+                <component :is="getIconComponent(size.icon)" class="option-icon" />
                 <span class="option-text">{{ size.label }}</span>
               </button>
             </div>
@@ -74,7 +78,7 @@
             <div class="option-grid">
               <button v-for="work in workTypeOptions" :key="work.value" class="option-btn"
                 :class="{ active: userProfile.workType === work.value }" @click="selectOption('workType', work.value)">
-                <span class="option-icon">{{ work.icon }}</span>
+                <component :is="getIconComponent(work.icon)" class="option-icon" />
                 <span class="option-text">{{ work.label }}</span>
               </button>
             </div>
@@ -94,12 +98,13 @@
 
       <!-- 3단계: 목표 및 우선순위 -->
       <div v-if="step === 3" class="step-content">
-        <div class="step-icon">🎯</div>
+        <div class="step-icon">
+          <Target />
+        </div>
         <h2 class="step-title">목표와 우선순위를<br>설정해주세요</h2>
         <p class="step-description">맞춤형 조언을 위해 마지막 질문이에요</p>
 
         <div class="form-section">
-
           <div class="form-group">
             <label class="form-label">중요하게 생각하는 요소 (2개까지 선택)</label>
             <div class="option-grid">
@@ -107,7 +112,7 @@
                 :class="{ active: userProfile.priorities.includes(priority.value) }"
                 @click="togglePriority(priority.value)"
                 :disabled="!userProfile.priorities.includes(priority.value) && userProfile.priorities.length >= 2">
-                <span class="option-icon">{{ priority.icon }}</span>
+                <component :is="getIconComponent(priority.icon)" class="option-icon" />
                 <span class="option-text">{{ priority.label }}</span>
               </button>
             </div>
@@ -119,7 +124,7 @@
               <button v-for="interest in interestOptions" :key="interest.value" class="option-btn"
                 :class="{ active: userProfile.mainInterest === interest.value }"
                 @click="selectOption('mainInterest', interest.value)">
-                <span class="option-icon">{{ interest.icon }}</span>
+                <component :is="getIconComponent(interest.icon)" class="option-icon" />
                 <span class="option-text">{{ interest.label }}</span>
               </button>
             </div>
@@ -152,6 +157,14 @@
 
 <script setup>
 import { reactive, computed, ref } from 'vue'
+import {
+  Hand, Settings, Target, Search, RotateCcw, BookOpen,
+  Sprout, TrendingUp, Star, Crown, Rocket, Building,
+  Building2, Landmark, HelpCircle, Palette, Cog,
+  Smartphone, BarChart3, Wrench, Clipboard,
+  Home, Repeat, DollarSign, Gift, Handshake,
+  Shield, PieChart, Banknote, Mic
+} from 'lucide-vue-next'
 
 const props = defineProps({
   step: {
@@ -169,7 +182,7 @@ const userProfile = reactive({
   status: '',
   experience: '',
   position: '',
-  companySize: '',
+  companySize: [],
   workType: '',
   techStack: [],
   priorities: [],
@@ -178,64 +191,170 @@ const userProfile = reactive({
 
 // 옵션 데이터들
 const statusOptions = [
-  { value: 'job_seeking', label: '구직중', icon: '🔍' },
-  { value: 'job_changing', label: '이직준비중', icon: '🔄' },
-  { value: 'exploring', label: '정보수집 단계', icon: '📚' }
+  { value: 'job_seeking', label: '구직중', icon: 'Search' },
+  { value: 'job_changing', label: '이직준비중', icon: 'RotateCcw' },
+  { value: 'exploring', label: '정보수집 단계', icon: 'BookOpen' }
 ]
 
 const experienceOptions = [
-  { value: 'entry', label: '신입', icon: '🌱' },
-  { value: '1-3years', label: '1-3년차', icon: '📈' },
-  { value: '4-7years', label: '4-7년차', icon: '⭐' },
-  { value: '8plus', label: '8년차 이상', icon: '👑' }
+  { value: 'entry', label: '신입', icon: 'Sprout' },
+  { value: '1-3years', label: '1-3년차', icon: 'TrendingUp' },
+  { value: '4-7years', label: '4-7년차', icon: 'Star' },
+  { value: '8plus', label: '8년차 이상', icon: 'Crown' }
 ]
 
 const positionOptions = [
-  { value: 'frontend_developer', label: '프론트엔드 개발자', icon: '🎨' },
-  { value: 'backend_developer', label: '백엔드 개발자', icon: '⚙️' },
-  { value: 'fullstack_developer', label: '풀스택 개발자', icon: '🔧' },
-  { value: 'mobile_developer', label: '모바일 개발자', icon: '📱' },
-  { value: 'data_analyst', label: '데이터 분석가', icon: '📊' },
-  { value: 'devops_engineer', label: 'DevOps 엔지니어', icon: '🔧' },
-  { value: 'product_manager', label: '프로덕트 매니저', icon: '📋' },
-  { value: 'designer', label: 'UI/UX 디자이너', icon: '🎨' },
-  { value: 'marketer', label: '마케터', icon: '📢' },
-  { value: 'other', label: '기타', icon: '💼' }
+  { value: 'frontend_developer', label: '프론트엔드 개발자', icon: 'Palette' },
+  { value: 'backend_developer', label: '백엔드 개발자', icon: 'Cog' },
+  { value: 'fullstack_developer', label: '풀스택 개발자', icon: 'Wrench' },
+  { value: 'mobile_developer', label: '모바일 개발자', icon: 'Smartphone' },
+  { value: 'data_analyst', label: '데이터 분석가', icon: 'BarChart3' },
+  { value: 'devops_engineer', label: 'DevOps 엔지니어', icon: 'Wrench' },
+  { value: 'product_manager', label: '프로덕트 매니저', icon: 'Clipboard' },
+  { value: 'designer', label: 'UI/UX 디자이너', icon: 'Palette' },
+  { value: 'marketer', label: '마케터', icon: 'TrendingUp' },
+  { value: 'other', label: '기타', icon: 'HelpCircle' }
 ]
 
 const companySizeOptions = [
-  { value: 'startup', label: '스타트업 (1-50명)', icon: '🚀' },
-  { value: 'small', label: '중소기업 (51-300명)', icon: '🏢' },
-  { value: 'medium', label: '중견기업 (301-1000명)', icon: '🏬' },
-  { value: 'large', label: '대기업 (1000명 이상)', icon: '🏛️' },
-  { value: 'any', label: '상관없음', icon: '🤷' }
+  { value: 'startup', label: '스타트업 (1-50명)', icon: 'Rocket' },
+  { value: 'small', label: '중소기업 (51-300명)', icon: 'Building' },
+  { value: 'medium', label: '중견기업 (301-1000명)', icon: 'Building2' },
+  { value: 'large', label: '대기업 (1000명 이상)', icon: 'Landmark' },
+  { value: 'any', label: '상관없음', icon: 'HelpCircle' }
 ]
 
 const workTypeOptions = [
-  { value: 'onsite', label: '출근 근무', icon: '🏢' },
-  { value: 'remote', label: '재택 근무', icon: '🏠' },
-  { value: 'hybrid', label: '하이브리드', icon: '🔄' },
-  { value: 'any', label: '상관없음', icon: '🤷' }
+  { value: 'onsite', label: '출근 근무', icon: 'Building' },
+  { value: 'remote', label: '재택 근무', icon: 'Home' },
+  { value: 'hybrid', label: '하이브리드', icon: 'Repeat' },
+  { value: 'any', label: '상관없음', icon: 'HelpCircle' }
 ]
 
-
 const priorityOptions = [
-  { value: 'salary', label: '연봉', icon: '💰' },
-  { value: 'growth', label: '성장기회', icon: '📈' },
-  { value: 'work_life_balance', label: '워라밸', icon: '⚖️' },
-  { value: 'benefits', label: '복리후생', icon: '🎁' },
-  { value: 'culture', label: '회사문화', icon: '🤝' },
-  { value: 'stability', label: '안정성', icon: '🛡️' }
+  { value: 'salary', label: '연봉', icon: 'DollarSign' },
+  { value: 'growth', label: '성장기회', icon: 'TrendingUp' },
+  { value: 'work_life_balance', label: '워라밸', icon: 'Shield' },
+  { value: 'benefits', label: '복리후생', icon: 'Gift' },
+  { value: 'culture', label: '회사문화', icon: 'Handshake' },
+  { value: 'stability', label: '안정성', icon: 'Shield' }
 ]
 
 const interestOptions = [
-  { value: 'market_trends', label: '시장 동향', icon: '📊' },
-  { value: 'salary_info', label: '연봉 정보', icon: '💵' },
-  { value: 'required_skills', label: '필요 스킬', icon: '🎯' },
-  { value: 'interview_prep', label: '면접 준비', icon: '🎤' }
+  { value: 'market_trends', label: '시장 동향', icon: 'PieChart' },
+  { value: 'salary_info', label: '연봉 정보', icon: 'Banknote' },
+  { value: 'required_skills', label: '필요 스킬', icon: 'Target' },
+  { value: 'interview_prep', label: '면접 준비', icon: 'Mic' }
 ]
 
-// 직무별 기술스택 옵션
+// 아이콘 컴포넌트 매핑
+const iconComponents = {
+  Search, RotateCcw, BookOpen, Sprout, TrendingUp, Star, Crown,
+  Palette, Cog, Wrench, Smartphone, BarChart3, Clipboard, HelpCircle,
+  Rocket, Building, Building2, Landmark, Home, Repeat,
+  DollarSign, Gift, Handshake, Shield, PieChart, Banknote, Target, Mic
+}
+
+// 아이콘 컴포넌트 반환 함수
+const getIconComponent = (iconName) => {
+  return iconComponents[iconName] || HelpCircle
+}
+
+// 나머지 메서드들 (동일)...
+const selectOption = (field, value) => {
+  userProfile[field] = value
+  console.log(`${field} 선택됨:`, value)
+}
+
+const toggleCompanySize = (size) => {
+  const index = userProfile.companySize.indexOf(size)
+  if (index === -1) {
+    if (userProfile.companySize.length < 3) {
+      userProfile.companySize.push(size)
+    }
+  } else {
+    userProfile.companySize.splice(index, 1)
+  }
+  console.log('회사 규모 업데이트:', userProfile.companySize)
+}
+
+const toggleTechStack = (tech) => {
+  const index = userProfile.techStack.indexOf(tech)
+  if (index === -1) {
+    if (userProfile.techStack.length < 5) {
+      userProfile.techStack.push(tech)
+    }
+  } else {
+    userProfile.techStack.splice(index, 1)
+  }
+  console.log('기술스택 업데이트:', userProfile.techStack)
+}
+
+const togglePriority = (priority) => {
+  const index = userProfile.priorities.indexOf(priority)
+  if (index === -1) {
+    if (userProfile.priorities.length < 2) {
+      userProfile.priorities.push(priority)
+    }
+  } else {
+    userProfile.priorities.splice(index, 1)
+  }
+  console.log('우선순위 업데이트:', userProfile.priorities)
+}
+
+const isStepValid = () => {
+  switch (props.step) {
+    case 1:
+      return userProfile.status && userProfile.experience && userProfile.position
+    case 2:
+      return userProfile.companySize.length > 0 && userProfile.workType
+    case 3:
+      return userProfile.priorities.length > 0 && userProfile.mainInterest
+    default:
+      return false
+  }
+}
+
+const handleNext = async () => {
+  console.log('다음 버튼 클릭, 현재 단계:', props.step)
+  console.log('현재 프로필 데이터:', userProfile)
+
+  if (props.step === 3) {
+    isCompleting.value = true
+
+    try {
+      const profileData = {
+        status: userProfile.status,
+        experience: userProfile.experience,
+        position: userProfile.position,
+        companySize: [...userProfile.companySize],
+        workType: userProfile.workType,
+        techStack: [...userProfile.techStack],
+        priorities: [...userProfile.priorities],
+        mainInterest: userProfile.mainInterest
+      }
+
+      emit('complete', profileData)
+    } catch (error) {
+      console.error('완료 처리 중 오류:', error)
+      isCompleting.value = false
+    }
+  } else {
+    emit('next', { ...userProfile })
+  }
+}
+
+const handlePrev = () => {
+  console.log('이전 버튼 클릭')
+  emit('prev')
+}
+
+const handleSkip = () => {
+  console.log('건너뛰기 버튼 클릭')
+  emit('skip')
+}
+
+// 기술스택 옵션
 const techStackByPosition = {
   frontend_developer: [
     { value: 'react', label: 'React' },
@@ -280,127 +399,46 @@ const techStackByPosition = {
   ]
 }
 
-// Computed 속성들
 const currentTechStackOptions = computed(() => {
   return techStackByPosition[userProfile.position] || []
 })
-
-// 메서드들
-const selectOption = (field, value) => {
-  userProfile[field] = value
-  console.log(`${field} 선택됨:`, value)
-}
-
-const toggleTechStack = (tech) => {
-  const index = userProfile.techStack.indexOf(tech)
-  if (index === -1) {
-    if (userProfile.techStack.length < 5) { // 최대 5개까지
-      userProfile.techStack.push(tech)
-    }
-  } else {
-    userProfile.techStack.splice(index, 1)
-  }
-  console.log('기술스택 업데이트:', userProfile.techStack)
-}
-
-const togglePriority = (priority) => {
-  const index = userProfile.priorities.indexOf(priority)
-  if (index === -1) {
-    if (userProfile.priorities.length < 2) {
-      userProfile.priorities.push(priority)
-    }
-  } else {
-    userProfile.priorities.splice(index, 1)
-  }
-  console.log('우선순위 업데이트:', userProfile.priorities)
-}
-
-const isStepValid = () => {
-  switch (props.step) {
-    case 1:
-      return userProfile.status && userProfile.experience && userProfile.position
-    case 2:
-      return userProfile.companySize && userProfile.workType
-    case 3:
-      return userProfile.priorities.length > 0 && userProfile.mainInterest
-    default:
-      return false
-  }
-}
-
-const handleNext = async () => {
-  console.log('다음 버튼 클릭, 현재 단계:', props.step)
-  console.log('현재 프로필 데이터:', userProfile)
-
-  if (props.step === 3) {
-    // 완료 처리 중 상태로 변경
-    isCompleting.value = true
-
-    try {
-      const profileData = {
-        status: userProfile.status,
-        experience: userProfile.experience,
-        position: userProfile.position,
-        companySize: userProfile.companySize,
-        workType: userProfile.workType,
-        techStack: [...userProfile.techStack],
-        priorities: [...userProfile.priorities],
-        mainInterest: userProfile.mainInterest
-      }
-
-      emit('complete', profileData)
-    } catch (error) {
-      console.error('완료 처리 중 오류:', error)
-      isCompleting.value = false
-    }
-  } else {
-    emit('next', { ...userProfile })
-  }
-}
-
-const handlePrev = () => {
-  console.log('이전 버튼 클릭')
-  emit('prev')
-}
-
-const handleSkip = () => {
-  console.log('건너뛰기 버튼 클릭')
-  emit('skip')
-}
 </script>
 
 <style scoped>
 .onboarding-screen {
   width: 100%;
   height: 100vh;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 50%, #ecfdf5 100%);
   padding: 20px;
   display: flex;
   flex-direction: column;
-  color: white;
+  color: #1f2937;
   overflow-y: auto;
 }
 
 .progress-bar {
   width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
   overflow: hidden;
   margin-bottom: 10px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .progress-fill {
   height: 100%;
-  background: white;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
   transition: width 0.3s ease;
+  border-radius: 3px;
 }
 
 .step-indicator {
   text-align: center;
   font-size: 14px;
-  opacity: 0.9;
+  color: #6b7280;
   margin-bottom: 30px;
+  font-weight: 500;
 }
 
 .onboarding-content {
@@ -416,8 +454,21 @@ const handleSkip = () => {
 }
 
 .step-icon {
-  font-size: 48px;
-  margin-bottom: 20px;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2);
+}
+
+.step-icon svg {
+  width: 40px;
+  height: 40px;
+  color: white;
 }
 
 .step-title {
@@ -425,14 +476,13 @@ const handleSkip = () => {
   font-weight: 700;
   line-height: 1.3;
   margin-bottom: 12px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  color: #1f2937;
 }
 
 .step-description {
   font-size: 16px;
-  opacity: 0.9;
+  color: #6b7280;
   margin-bottom: 30px;
-  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
 }
 
 .form-section {
@@ -448,13 +498,13 @@ const handleSkip = () => {
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 12px;
-  color: white;
+  color: #374151;
 }
 
 .option-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .option-grid.single-column {
@@ -466,8 +516,8 @@ const handleSkip = () => {
 }
 
 .option-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: white;
+  border: 2px solid #e5e7eb;
   border-radius: 12px;
   padding: 15px 12px;
   cursor: pointer;
@@ -477,24 +527,31 @@ const handleSkip = () => {
   align-items: center;
   gap: 8px;
   text-align: center;
-  backdrop-filter: blur(10px);
-  color: white;
+  color: #374151;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .option-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: #f9fafb;
+  border-color: #10b981;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
 }
 
 .option-btn.active {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: white;
-  color: #3b82f6;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: #059669;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
 }
 
 .option-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  background: #f3f4f6;
+  border-color: #d1d5db;
 }
 
 .option-btn.tech-btn {
@@ -504,7 +561,8 @@ const handleSkip = () => {
 }
 
 .option-icon {
-  font-size: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .option-text {
@@ -534,40 +592,71 @@ const handleSkip = () => {
 }
 
 .btn-primary {
-  background: white;
-  color: #3b82f6;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #f8f9fa;
   transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
 }
 
 .btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: white;
+  color: #374151;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: #f9fafb;
+  border-color: #10b981;
+  color: #10b981;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
 }
 
 .btn-text {
   background: none;
-  color: rgba(255, 255, 255, 0.8);
+  color: #6b7280;
   padding: 12px 24px;
 }
 
 .btn-text:hover {
-  color: white;
+  color: #374151;
+}
+
+.loading-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes fadeInUp {
@@ -582,14 +671,21 @@ const handleSkip = () => {
   }
 }
 
+/* 반응형 디자인 */
 @media (max-width: 768px) {
   .onboarding-screen {
     padding: 15px;
   }
 
   .step-icon {
-    font-size: 40px;
+    width: 70px;
+    height: 70px;
     margin-bottom: 15px;
+  }
+
+  .step-icon svg {
+    width: 35px;
+    height: 35px;
   }
 
   .step-title {
@@ -602,7 +698,7 @@ const handleSkip = () => {
 
   .option-grid {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 10px;
   }
 
   .option-grid.tech-grid {
@@ -616,26 +712,48 @@ const handleSkip = () => {
   .option-text {
     font-size: 12px;
   }
+
+  .option-icon {
+    width: 20px;
+    height: 20px;
+  }
 }
 
-.loading-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+@media (max-width: 480px) {
+  .step-icon {
+    width: 60px;
+    height: 60px;
+  }
 
-.btn-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(59, 130, 246, 0.3);
-  border-top: 2px solid #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
+  .step-icon svg {
+    width: 30px;
+    height: 30px;
+  }
 
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
+  .step-title {
+    font-size: 18px;
+  }
+
+  .step-description {
+    font-size: 13px;
+  }
+
+  .option-btn {
+    padding: 10px 8px;
+  }
+
+  .option-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .option-text {
+    font-size: 11px;
+  }
+
+  .btn {
+    font-size: 14px;
+    padding: 12px 20px;
+  }
 }
 </style>

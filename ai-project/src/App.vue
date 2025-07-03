@@ -3,17 +3,11 @@
     <div class="app-container">
       <!-- 스플래시 화면 -->
       <SplashScreen v-if="currentScreen === 'splash'" />
-      
+
       <!-- 온보딩 화면 -->
-      <OnboardingScreen 
-        v-if="currentScreen === 'onboarding'"
-        :step="onboardingStep"
-        @next="handleOnboardingNext"
-        @prev="handleOnboardingPrev"
-        @skip="handleOnboardingSkip"
-        @complete="handleOnboardingComplete"
-      />
-      
+      <OnboardingScreen v-if="currentScreen === 'onboarding'" :step="onboardingStep" @next="handleOnboardingNext"
+        @prev="handleOnboardingPrev" @skip="handleOnboardingSkip" @complete="handleOnboardingComplete" />
+
       <!-- Job-pt 메인 화면 -->
       <JobAnalysisMainScreen v-if="currentScreen === 'main'" />
     </div>
@@ -50,7 +44,7 @@ const handleOnboardingPrev = () => {
 
 const handleOnboardingComplete = async (profileData) => {
   console.log('온보딩 완료:', profileData)
-  
+
   try {
     await appStore.saveUserProfile(profileData)
     await appStore.generateCustomQuestions(profileData)
@@ -74,16 +68,16 @@ const handleOnboardingSkip = () => {
 onMounted(async () => {
   console.log('App 마운트됨')
   console.log('현재 화면:', currentScreen.value)
-  
+
   // 앱 초기화가 완료될 때까지 대기
   await appStore.waitForInitialization()
-  
+
   console.log('앱 초기화 완료, 온보딩 완료 상태:', appStore.isOnboardingCompleted)
-  
+
   // 스플래시 화면을 2초 후 다음 단계로 전환
   setTimeout(() => {
     console.log('스플래시 타임아웃 발생')
-    
+
     if (appStore.isOnboardingCompleted) {
       console.log('온보딩 이미 완료됨 -> 메인 화면으로')
       currentScreen.value = 'main'
@@ -92,7 +86,7 @@ onMounted(async () => {
       currentScreen.value = 'onboarding'
       onboardingStep.value = 1 // 1단계부터 시작
     }
-    
+
     console.log('변경된 화면:', currentScreen.value)
   }, 2000)
 })
@@ -107,7 +101,7 @@ onMounted(async () => {
 
 body {
   font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #f5f7fa;
+  background: #f0fdf4;
   overflow-x: hidden;
 }
 
@@ -123,7 +117,7 @@ body {
   .app-container {
     max-width: 1200px;
     margin: 0 auto;
-    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
   }
 }
 
