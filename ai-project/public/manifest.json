@@ -1,0 +1,21 @@
+{
+  "name": "Job-pt - AI 채용공고 분석 도우미",
+  "short_name": "Job-pt",
+  "description": "AI가 채용공고를 분석하고 맞춤형 조언을 제공하는 서비스",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/job-pt-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/job-pt-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
