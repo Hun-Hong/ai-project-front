@@ -371,10 +371,23 @@ const handleKeydown = (event) => {
 }
 
 const handleInput = (event) => {
-  // 텍스트 영역 자동 크기 조정
   const textarea = event.target
+
+  // 높이 초기화
   textarea.style.height = 'auto'
-  textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px'
+
+  // 최대 높이 제한 (5줄 정도)
+  const maxHeight = 120
+  const newHeight = Math.min(textarea.scrollHeight, maxHeight)
+
+  textarea.style.height = newHeight + 'px'
+
+  // 스크롤이 생기지 않도록 추가 처리
+  if (textarea.scrollHeight > maxHeight) {
+    textarea.style.overflowY = 'auto'
+  } else {
+    textarea.style.overflowY = 'hidden'
+  }
 }
 
 const autoScrollEnabled = ref(true)
@@ -1075,11 +1088,19 @@ onMounted(async () => {
   resize: none;
   transition: border-color 0.3s ease;
   min-height: 44px;
+  max-height: 120px;
+  /* 최대 높이 제한 */
+  overflow-y: hidden;
+  /* 스크롤바 숨김 */
+  overflow-x: hidden;
+  /* 가로 스크롤도 숨김 */
 }
 
+/* 포커스 시에도 스크롤 숨김 */
 .message-input:focus {
   outline: none;
   border-color: #10b981;
+  overflow-y: hidden;
 }
 
 .message-input:disabled {
