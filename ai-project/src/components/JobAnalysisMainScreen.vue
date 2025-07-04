@@ -491,24 +491,37 @@ const loadChatHistory = async () => {
 const formatMarkdown = (text) => {
   // 1. 테이블 변환 먼저 처리
   let formatted = text
-
+  
   // 마크다운 테이블을 HTML 테이블로 변환
   formatted = formatted.replace(/\|(.+)\|\n\|[-:\s\|]+\|\n((?:\|.+\|\n?)*)/g, (match, header, rows) => {
     // 헤더 처리
     const headerCells = header.split('|').map(cell => cell.trim()).filter(cell => cell)
     const headerHtml = headerCells.map(cell => `<th>${cell}</th>`).join('')
-
+    
     // 행 처리
     const rowsArray = rows.trim().split('\n').filter(row => row.trim())
     const rowsHtml = rowsArray.map(row => {
       const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell)
       return `<tr>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`
     }).join('')
-
+    
     return `<table class="markdown-table"><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>`
   })
 
-  // 2. 나머지 마크다운 요소들 처리
+  // 2. 마크다운 링크 변환 [텍스트](URL)
+  formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="markdown-link">$1</a>')
+
+  // 3. 일반 URL을 링크로 변환 (http, https로 시작하는 URL)
+  const urlRegex = /(?<!href="|src=")https?:\/\/[^\s<>"{}|\\^`[\]]+/g
+  formatted = formatted.replace(urlRegex, (url) => {
+    // URL에서 마지막 문장부호 제거 (마침표, 쉼표, 느낌표, 물음표)
+    const cleanUrl = url.replace(/[.,!?]+$/, '')
+    const punctuation = url.slice(cleanUrl.length)
+    
+    return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="markdown-link">${cleanUrl}</a>${punctuation}`
+  })
+
+  // 4. 나머지 마크다운 요소들 처리
   return formatted
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // **굵은글씨**
     .replace(/\*(.*?)\*/g, '<em>$1</em>') // *기울임*
